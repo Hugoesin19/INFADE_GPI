@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mercadona Autopilot | El Jefe</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header class="main-header">
+        <div class="header-container">
+            <img src="assets/logo.png" alt="Mercadona" class="logo">
+            <div class="badge">AUTOPILOT V1.0</div>
+        </div>
+    </header>
+
+    <main class="app-container">
+        <section class="card hero-section">
+            <h1>Hola, Jefe. ¿Qué compra preparamos hoy?</h1>
+            <p class="subtitle">Indica tus necesidades, alergias o presupuesto en lenguaje natural.</p>
+            <div class="input-group">
+                <textarea id="promptInput"
+                    placeholder="Ej: Tengo 90€ para la semana. Somos dos. Ella es celíaca y yo busco dieta hiperproteica..."></textarea>
+                <button id="mainAction" class="btn-primary">Optimizar Cesta Inteligente</button>
+            </div>
+        </section>
+
+        <section id="techMonitor" class="monitor-section hidden">
+            <div class="monitor-header">
+                <div class="pulse-icon"></div>
+                <span>Procesando Arquitectura Híbrida CSP-LLM...</span>
+            </div>
+            <div class="steps-grid">
+                <div class="step" id="step1">
+                    <div class="step-num">1</div>
+                    <div class="step-label">Extracción (LLM)</div>
+                </div>
+                <div class="step" id="step2">
+                    <div class="step-num">2</div>
+                    <div class="step-label">Muro de Seguridad</div>
+                </div>
+                <div class="step" id="step3">
+                    <div class="step-num">3</div>
+                    <div class="step-label">Negociación de Agentes</div>
+                </div>
+            </div>
+        </section>
+
+        <section id="resultsSection" class="results-container hidden">
+            <div class="result-grid">
+                <div class="card cart-list">
+                    <h3>Tu Cesta Optimizada</h3>
+                    <div id="itemsContainer"></div>
+                </div>
+                <div class="card summary-panel">
+                    <h3>Resumen Técnico</h3>
+                    <div class="stats">
+                        <div class="stat-item"><span>Presupuesto</span> <strong id="resPrice">0€</strong></div>
+                        <div class="stat-item"><span>Peso Logístico</span> <strong id="resWeight">0kg</strong></div>
+                        <div class="stat-item"><span>Seguridad Alimentaria</span> <strong
+                                id="resSafety">Validada</strong></div>
+                    </div>
+                    <button class="btn-secondary">Confirmar Compra</button>
+                </div>
+            </div>
+        </section>
+    </main>
+    <script src="script.js"></script>
+</body>
+
+</html>
