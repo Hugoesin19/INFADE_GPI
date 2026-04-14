@@ -4,71 +4,285 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mercadona Autopilot | El Jefe</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>Mercadona Autopilot Premium</title>
+
+    <!-- Fuentes Premium: Baskerville para Serif pesado, Inter para limpieza -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        merca: '#008f39',
+                        accent: '#ff7d00',
+                        crema: '#f9f8f4'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Libre Baskerville', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- React & ReactDOM (CDN) -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel (CDN) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 
-<body>
-    <header class="main-header">
-        <div class="header-container">
-            <img src="assets/logo.png" alt="Mercadona" class="logo">
-            <div class="badge">AUTOPILOT V1.0</div>
-        </div>
-    </header>
+<body class="bg-crema font-sans text-slate-700 antialiased">
 
-    <main class="app-container">
-        <section class="card hero-section">
-            <h1>Hola, Jefe. ¿Qué compra preparamos hoy?</h1>
-            <p class="subtitle">Indica tus necesidades, alergias o presupuesto en lenguaje natural.</p>
-            <div class="input-group">
-                <textarea id="promptInput"
-                    placeholder="Ej: Tengo 90€ para la semana. Somos dos. Ella es celíaca y yo busco dieta hiperproteica..."></textarea>
-                <button id="mainAction" class="btn-primary">Optimizar Cesta Inteligente</button>
-            </div>
-        </section>
+    <div id="root"></div>
 
-        <section id="techMonitor" class="monitor-section hidden">
-            <div class="monitor-header">
-                <div class="pulse-icon"></div>
-                <span>Procesando Arquitectura Híbrida CSP-LLM...</span>
-            </div>
-            <div class="steps-grid">
-                <div class="step" id="step1">
-                    <div class="step-num">1</div>
-                    <div class="step-label">Extracción (LLM)</div>
-                </div>
-                <div class="step" id="step2">
-                    <div class="step-num">2</div>
-                    <div class="step-label">Muro de Seguridad</div>
-                </div>
-                <div class="step" id="step3">
-                    <div class="step-num">3</div>
-                    <div class="step-label">Negociación de Agentes</div>
-                </div>
-            </div>
-        </section>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
 
-        <section id="resultsSection" class="results-container hidden">
-            <div class="result-grid">
-                <div class="card cart-list">
-                    <h3>Tu Cesta Optimizada</h3>
-                    <div id="itemsContainer"></div>
+        const App = () => {
+            const [phase, setPhase] = useState(1);
+
+            // Estado para los mensajes de la "Consola de Inteligencia"
+            const [steps, setSteps] = useState([
+                { id: 1, text: "Analizando necesidades de el cliente...", status: 'pending' },
+                { id: 2, text: "Aplicando filtros de seguridad alimentaria (CSP)...", status: 'pending' },
+                { id: 3, text: "Ajustes finales para mejorar la cesta...", status: 'pending' }
+            ]);
+
+            const startOptimization = () => {
+                setPhase(2);
+            };
+
+            // Simulación del Back-end
+            useEffect(() => {
+                if (phase === 2) {
+                    let currentStepIndex = 0;
+
+                    const interval = setInterval(() => {
+                        if (currentStepIndex < steps.length) {
+                            setSteps(prevSteps => prevSteps.map((step, index) => {
+                                if (index === currentStepIndex) return { ...step, status: 'completed' };
+                                return step;
+                            }));
+                            currentStepIndex++;
+                        } else {
+                            clearInterval(interval);
+                            // Pausa para dar sensación de finalización
+                            setTimeout(() => setPhase(3), 1000);
+                        }
+                    }, 1800); // Ritmo de simulación
+
+                    return () => clearInterval(interval);
+                }
+            }, [phase]);
+
+            return (
+                <div className="min-h-screen flex flex-col">
+
+                    {/* ===== HEADER ===== */}
+                    {/* Fondo blanco puro, sombra leve, altura importante para dar presencia al logo */}
+                    <header className="bg-white shadow-sm border-b border-slate-100 sticky top-0 z-50">
+                        <div className="max-w-6xl mx-auto px-6 lg:px-8 py-5 flex items-center justify-between">
+                            <div className="flex-shrink-0">
+                                {/* Tamaño de logo generoso (h-12 a h-16) según PRD */}
+                                <img src="assets/logo.png" alt="Mercadona" className="h-12 sm:h-14 lg:h-16 object-contain" />
+                            </div>
+
+                            <nav className="hidden md:flex space-x-8">
+                                <a href="#" className="font-semibold text-slate-800 hover:text-merca transition-colors text-lg">Catálogo</a>
+                                <a href="#" className="font-semibold text-slate-800 hover:text-merca transition-colors text-lg">Autopilot</a>
+                            </nav>
+
+                            <div className="flex items-center text-slate-800 font-semibold cursor-pointer">
+                                Español <svg className="w-5 h-5 inline-block ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Espaciado general respirable: max-w-6xl mx-auto */}
+                    <main className="flex-1 max-w-6xl mx-auto px-6 lg:px-8 w-full py-16 lg:py-24 flex flex-col justify-center relative">
+
+                        {/* ================= ESTADO 1: INICIO ================= */}
+                        {phase === 1 && (
+                            <div className="max-w-4xl mx-auto w-full text-center">
+                                {/* Títulos con font-serif pesado */}
+                                <h1 className="font-serif font-bold text-slate-900 tracking-tight text-5xl md:text-6xl lg:text-[72px] mb-12 leading-tight">
+                                    Empieza tu <span className="text-merca">compra inteligente</span>
+                                </h1>
+
+                                {/* Textarea blanco puro, enorme y redondeado */}
+                                <div className="relative">
+                                    <textarea
+                                        className="w-full h-56 sm:h-72 p-8 text-xl sm:text-[22px] text-slate-800 bg-white rounded-3xl shadow-sm border border-slate-200 focus:outline-none focus:ring-4 focus:ring-merca/10 focus:border-merca resize-none placeholder-slate-400"
+                                        placeholder="Ej: Necesito ingredientes para una paella de 4 personas, la dieta incluye..."
+                                        autoFocus
+                                    ></textarea>
+                                </div>
+
+                                <div className="mt-14">
+                                    {/* Botón CTA Verde, gigante, redondeado, texto mayúsculas */}
+                                    <button
+                                        onClick={startOptimization}
+                                        className="bg-merca text-white font-bold uppercase text-lg sm:text-xl px-12 py-5 rounded-2xl hover:bg-[#007a30] transition-all transform active:scale-95 shadow-md hover:shadow-lg"
+                                    >
+                                        Hacer Carrito
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ================= ESTADO 2: CONSOLA DE INTELIGENCIA ================= */}
+                        {phase === 2 && (
+                            <div className="max-w-3xl mx-auto w-full animate-fade-in text-center pt-8">
+                                <h2 className="font-serif font-bold text-slate-900 text-3xl sm:text-4xl mb-12">
+                                    Consola de Inteligencia
+                                </h2>
+
+                                {/* Tarjeta Blanca Elegante, No un terminal negro */}
+                                <div className="bg-white p-10 sm:p-14 rounded-3xl shadow-sm border border-slate-200 text-left space-y-8">
+                                    {steps.map((step) => (
+                                        <div key={step.id} className="flex items-start">
+                                            {/* Icono de carga / listo (Verde) */}
+                                            {step.status === 'completed' ? (
+                                                <div className="w-10 h-10 rounded-full bg-merca/10 flex items-center justify-center mr-6 shrink-0 transition-all">
+                                                    <svg className="w-6 h-6 text-merca" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
+                                                </div>
+                                            ) : (
+                                                <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center mr-6 shrink-0 transition-all border border-slate-100">
+                                                    <div className="w-4 h-4 rounded-full border-2 border-merca border-t-transparent animate-spin"></div>
+                                                </div>
+                                            )}
+
+                                            <div className="flex-1 pt-1">
+                                                <span className={`text-[20px] transition-colors duration-500 ${step.status === 'completed' ? 'text-slate-900 font-semibold' : 'text-slate-500 font-medium'}`}>
+                                                    {step.text}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ================= ESTADO 3: CARRITO ================= */}
+                        {phase === 3 && (
+                            <div className="flex flex-col lg:flex-row gap-10 items-start w-full animate-fade-in">
+
+                                {/* Columna Izquierda: Grid de Productos */}
+                                <div className="flex-1 w-full">
+                                    <h2 className="font-serif font-bold text-slate-900 text-3xl sm:text-4xl mb-10">
+                                        Cesta sugerida
+                                    </h2>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+
+                                        {/* Producto 1 */}
+                                        <div className="bg-white w-full rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col group hover:shadow-md transition-shadow">
+                                            <div className="w-full bg-slate-50 aspect-square flex items-center justify-center border-b border-slate-100 p-8">
+                                                <img src="https://tienda.mercadona.es/api/file/media/c968846c268809c91d4e0eeb9bb40673.jpeg" alt="" className="object-contain h-full w-full opacity-0 bg-slate-200" style={{ opacity: 0, content: '""' }} />
+                                                {/* Placeholder SVG */}
+                                                <svg className="w-16 h-16 text-slate-300 absolute" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                            </div>
+                                            <div className="p-6 flex-1 flex flex-col justify-between">
+                                                <div>
+                                                    <div className="inline-block bg-merca/10 text-merca text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider mb-3">Hacendado</div>
+                                                    <h3 className="text-slate-800 font-semibold mb-3 leading-snug">Pechuga de pavo fileteada</h3>
+                                                </div>
+                                                <div className="text-[22px] font-bold text-slate-900 mt-2">2,40 €</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Producto 2 */}
+                                        <div className="bg-white w-full rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col group hover:shadow-md transition-shadow">
+                                            <div className="w-full bg-slate-50 aspect-square flex items-center justify-center border-b border-slate-100 p-8">
+                                                <svg className="w-16 h-16 text-slate-300 absolute" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                            </div>
+                                            <div className="p-6 flex-1 flex flex-col justify-between">
+                                                <div>
+                                                    <div className="inline-block bg-merca/10 text-merca text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider mb-3">Hacendado</div>
+                                                    <h3 className="text-slate-800 font-semibold mb-3 leading-snug">Pan de molde blanco sin corteza</h3>
+                                                </div>
+                                                <div className="text-[22px] font-bold text-slate-900 mt-2">1,90 €</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Producto 3 */}
+                                        <div className="bg-white w-full rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col group hover:shadow-md transition-shadow">
+                                            <div className="w-full bg-slate-50 aspect-square flex items-center justify-center border-b border-slate-100 p-8">
+                                                <svg className="w-16 h-16 text-slate-300 absolute" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                            </div>
+                                            <div className="p-6 flex-1 flex flex-col justify-between">
+                                                <div>
+                                                    <div className="inline-block bg-merca/10 text-merca text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider mb-3">Hacendado</div>
+                                                    <h3 className="text-slate-800 font-semibold mb-3 leading-snug">Tomate frito receta casera</h3>
+                                                </div>
+                                                <div className="text-[22px] font-bold text-slate-900 mt-2">1,35 €</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Producto 4 */}
+                                        <div className="bg-white w-full rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col group hover:shadow-md transition-shadow">
+                                            <div className="w-full bg-slate-50 aspect-square flex items-center justify-center border-b border-slate-100 p-8">
+                                                <svg className="w-16 h-16 text-slate-300 absolute" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                            </div>
+                                            <div className="p-6 flex-1 flex flex-col justify-between">
+                                                <div>
+                                                    <div className="inline-block bg-merca/10 text-merca text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider mb-3">Hacendado</div>
+                                                    <h3 className="text-slate-800 font-semibold mb-3 leading-snug">Arroz redondo Extra</h3>
+                                                </div>
+                                                <div className="text-[22px] font-bold text-slate-900 mt-2">1,30 €</div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+
+                                {/* Columna Derecha: Panel de Resumen Lateral */}
+                                <div className="w-full lg:w-[380px] flex-shrink-0">
+                                    <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 sticky top-28">
+                                        <h3 className="font-serif font-bold text-slate-900 text-2xl mb-8 border-b border-slate-100 pb-4">Resumen de Optimización</h3>
+
+                                        <div className="space-y-5 mb-10">
+                                            <div className="flex justify-between items-center text-lg">
+                                                <span className="text-slate-600">Presupuesto sugerido:</span>
+                                                <span className="font-bold text-slate-900">8,00 €</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-lg border-b border-slate-100 pb-5">
+                                                <span className="text-slate-600">Cumplimiento Dieta:</span>
+                                                <span className="font-semibold text-merca bg-merca/10 px-3 py-1 rounded-md text-sm">100% SEGURO</span>
+                                            </div>
+                                            <div className="flex justify-between items-end pt-3">
+                                                <span className="font-semibold text-slate-800 text-xl">Importe Total</span>
+                                                <span className="font-bold text-[34px] text-accent leading-none">6,95 €</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Botón CTA Final, usando color verde para el botón como antes */}
+                                        <button className="w-full bg-merca text-white font-bold uppercase text-lg px-8 py-5 rounded-xl hover:bg-[#007a30] transition-transform transform active:scale-95 shadow-md">
+                                            CONFIRMAR CESTA
+                                        </button>
+                                        <p className="text-center text-slate-400 mt-4 text-sm font-medium">Transfiere tus datos de forma segura a Mercadona</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                    </main>
                 </div>
-                <div class="card summary-panel">
-                    <h3>Resumen Técnico</h3>
-                    <div class="stats">
-                        <div class="stat-item"><span>Presupuesto</span> <strong id="resPrice">0€</strong></div>
-                        <div class="stat-item"><span>Peso Logístico</span> <strong id="resWeight">0kg</strong></div>
-                        <div class="stat-item"><span>Seguridad Alimentaria</span> <strong
-                                id="resSafety">Validada</strong></div>
-                    </div>
-                    <button class="btn-secondary">Confirmar Compra</button>
-                </div>
-            </div>
-        </section>
-    </main>
-    <script src="script.js"></script>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 
 </html>
