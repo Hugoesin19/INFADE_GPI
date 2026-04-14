@@ -18,6 +18,6 @@ El backend procesa lenguaje natural y lo somete a un embudo de seguridad antes d
 
 ## 📂 Estado 
 * [hecho] Repositorio y control de versiones configurado.
-* [por hacer] Pila del Producto y tablero SCRUM desplegado.
+* [hecho] Pila del Producto y tablero SCRUM desplegado.
 * [hecho] Primeros bocetos de UI finalizados.
 * [hecho] Arquitectura de datos definida.
