@@ -5,7 +5,7 @@
 ## Equipo
 * **Scrum Master:** Edgar Gisbert
 * **Product Owner:** Hugo Esclapez
-* **Equipo de desarrollo:** Iñaki Aguilar, Jorge Martínez y Marcos Manén
+* **Equipo de desarrollo:** Iñaki Aguilar, Malena Belda, Jorge Martínez y Marcos Manén
 
 ## Visión del Producto
 Convertirnos en el único supermercado que asuma de la carga mental de "El Jefe" al hacer la compra. Utilizamos un motor híbrido de IA para generar cestas personalizadas en segundos, priorizando la rentabilidad (marca Hacendado) y garantizando una seguridad alimentaria estricta.
@@ -18,6 +18,6 @@ El backend procesa lenguaje natural y lo somete a un embudo de seguridad antes d
 
 ## 📂 Estado 
 * [hecho] Repositorio y control de versiones configurado.
-* [por hacer] Pila del Producto y tablero SCRUM desplegado.
+* [hecho] Pila del Producto y tablero SCRUM desplegado.
 * [hecho] Primeros bocetos de UI finalizados.
 * [hecho] Arquitectura de datos definida.
