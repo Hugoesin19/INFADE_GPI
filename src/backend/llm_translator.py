@@ -88,18 +88,18 @@ _RECIPE_DB = [
     {
         "names": {"tortilla", "tortilla española", "tortilla de patatas", "tortilla de patata"},
         "meal_type": "comida",
-        "ingredients": ["huevos", "patatas", "cebolla", "aceite de oliva", "sal"],
+        "ingredients": ["huevos", "patatas selección", "cebolla", "aceite de oliva", "sal"],
     },
     {
         "names": {"huevos fritos", "huevos con patatas", "huevos rotos"},
         "meal_type": "comida",
-        "ingredients": ["huevos", "patatas", "jamón serrano", "aceite de oliva", "sal"],
+        "ingredients": ["huevos", "patatas selección", "jamón serrano", "aceite de oliva", "sal"],
     },
     # ── Ensaladas ─────────────────────────────────────────
     {
         "names": {"ensalada", "ensalada mixta", "ensalada verde"},
         "meal_type": "comida",
-        "ingredients": ["lechuga", "tomate", "atún", "maíz dulce", "aceite de oliva virgen", "vinagre"],
+        "ingredients": ["lechuga", "tomates pera", "atún", "maíz dulce", "aceite de oliva virgen", "vinagre"],
     },
     {
         "names": {"ensalada cesar", "ensalada césar", "cesar", "césar"},
@@ -115,7 +115,7 @@ _RECIPE_DB = [
     {
         "names": {"gazpacho"},
         "meal_type": "comida",
-        "ingredients": ["tomate", "pepino", "pimiento", "aceite de oliva virgen", "vinagre", "ajo", "sal"],
+        "ingredients": ["tomates pera", "pepino", "pimiento", "aceite de oliva virgen", "vinagre", "ajo", "sal"],
     },
     {
         "names": {"crema de calabaza", "crema de verduras"},
@@ -126,12 +126,12 @@ _RECIPE_DB = [
     {
         "names": {"lentejas", "lentejas estofadas"},
         "meal_type": "comida",
-        "ingredients": ["lentejas", "chorizo", "patatas", "zanahoria", "cebolla", "aceite de oliva", "pimentón", "sal"],
+        "ingredients": ["lentejas", "chorizo", "patatas selección", "zanahoria", "cebolla", "aceite de oliva", "pimentón", "sal"],
     },
     {
         "names": {"cocido", "cocido madrileño"},
         "meal_type": "comida",
-        "ingredients": ["garbanzos cocidos", "carne", "patatas", "zanahoria", "caldo", "fideos", "sal"],
+        "ingredients": ["garbanzos cocidos", "carne picada", "patatas selección", "zanahoria", "caldo", "fideos", "sal"],
     },
     {
         "names": {"alubias", "fabada", "judiones"},
@@ -142,22 +142,22 @@ _RECIPE_DB = [
     {
         "names": {"pollo asado", "pollo al horno"},
         "meal_type": "comida",
-        "ingredients": ["muslos de pollo", "patatas", "cebolla", "aceite de oliva virgen", "sal", "pimienta negra"],
+        "ingredients": ["muslos de pollo", "patatas selección", "cebolla", "aceite de oliva virgen", "sal", "pimienta negra"],
     },
     {
         "names": {"hamburguesa", "hamburguesas", "burger"},
         "meal_type": "comida",
-        "ingredients": ["hamburguesas de vacuno", "pan de hamburguesa", "lechuga", "tomate", "queso tierno", "kétchup"],
+        "ingredients": ["hamburguesas de vacuno", "pan de hamburguesa", "lechuga", "tomates pera", "queso tierno", "kétchup"],
     },
     {
         "names": {"filetes", "filetes de pollo", "pechuga", "pechuga a la plancha"},
         "meal_type": "comida",
-        "ingredients": ["pechuga de pollo", "aceite de oliva", "lechuga", "tomate", "sal"],
+        "ingredients": ["pechuga de pollo", "aceite de oliva", "lechuga", "tomates pera", "sal"],
     },
     {
         "names": {"costillas", "costillas al horno", "costillas barbacoa"},
         "meal_type": "comida",
-        "ingredients": ["costillas de cerdo", "patatas", "aceite de oliva", "sal", "pimienta negra"],
+        "ingredients": ["costillas de cerdo", "patatas selección", "aceite de oliva", "sal", "pimienta negra"],
     },
     # ── Pescados ──────────────────────────────────────────
     {
@@ -215,6 +215,7 @@ def translate_prompt(user_text: str) -> dict[str, Any]:
     Traduce el texto libre del usuario a un dict estructurado.
     Si no hay API key, devuelve la respuesta demo.
     """
+    print(f"DEBUG PROMPT: {user_text!r}")
     if DEMO_MODE:
         return _fallback_translate(user_text)
 
