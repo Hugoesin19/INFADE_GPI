@@ -36,70 +36,88 @@ class CartState:
 # ═══════════════════════════════════════════════════════════
 
 def _demo_nutritionist(state: CartState) -> CartState:
-    """Agente Nutricionista: busca los ingredientes reales de la receta pedida."""
+    """
+    Agente Nutricionista: busca exactamente 1 producto por cada ingrediente.
+    Los search_queries vienen del mapa de recetas del translator (ej: "espaguetis",
+    "carne picada", "tomate frito", "cebolla", "ajo", "aceite de oliva", "sal").
+    """
     selected = []
     used_ids = set()
+    used_subcategories = set()
 
     def _find_best(keyword: str) -> dict | None:
         """Encuentra el mejor producto para un ingrediente con scoring de relevancia."""
         candidates = []
         kw = keyword.lower()
-        # Categorías de comida fresca (preferidas para recetas)
-        fresh_cats = {"carne", "verdura y fruta", "huevos, leche y mantequilla",
-                      "arroz, legumbres y pasta", "aceite, especias y salsas"}
-        # Palabras que indican que un producto NO es el ingrediente real
-        noise_words = {"sorpresa", "sabor", "aroma", "ambientador", "gel", "jabón"}
+        kw_words = set(kw.split())
 
         for p in state.available_products:
             if p["id"] in used_ids:
                 continue
-            name_l = p["name"].lower()
-            cat_l = p["category"].lower()
-            sub_l = p.get("subcategory", "").lower()
-            if kw in name_l or kw in cat_l or kw in sub_l:
-                # Penalizar productos engañosos
-                if any(nw in name_l for nw in noise_words):
-                    continue  # Descartar completamente
 
-                score = 0
-                # El nombre empieza con el keyword → producto real
+            name_l = p["name"].lower()
+            sub_l = p.get("subcategory", "").lower()
+
+            # Verificar si el producto tiene relación con el keyword
+            # Se busca en nombre y subcategoría
+            match = False
+            score = 0
+
+            # Coincidencia exacta o substring en nombre
+            if kw in name_l:
+                match = True
+                # Bonus si el nombre empieza con el keyword
                 if name_l.startswith(kw):
                     score += 100
-                # La subcategoría contiene el keyword → categoría directa
-                elif kw in sub_l:
-                    score += 80
-                # Keyword como palabra en el nombre
                 else:
-                    # "sazonador para X" → score bajo
-                    words = name_l.split()
-                    if kw in words or any(w.startswith(kw) for w in words):
-                        score += 60
-                    else:
-                        score += 30
+                    score += 70
+            # Alguna de las palabras clave está en el nombre
+            elif kw_words and any(w in name_l for w in kw_words if len(w) >= 3):
+                match = True
+                # Cuántas palabras del keyword coinciden
+                matching_words = sum(1 for w in kw_words if w in name_l and len(w) >= 3)
+                score += 40 + (matching_words * 15)
+            # Subcategoría contiene el keyword
+            elif kw in sub_l:
+                match = True
+                score += 50
 
-                # Bonus comida fresca
-                if cat_l in fresh_cats:
-                    score += 15
-                # Bonus Hacendado
-                if p["brand"] == "Hacendado":
-                    score += 10
-                candidates.append((score, p["price"], p))
+            if not match:
+                continue
+
+            # Penalizar si ya tenemos algo de esa subcategoría (evitar duplicados)
+            if sub_l and sub_l in used_subcategories:
+                score -= 30
+
+            # Bonus Hacendado (más margen)
+            if p["brand"] == "Hacendado":
+                score += 10
+
+            # Bonus menor precio (priorizar economía)
+            score += max(0, 10 - int(p["price"]))
+
+            candidates.append((score, p["price"], p))
+
         if not candidates:
             return None
+
         # Mayor score primero, luego precio más bajo
         candidates.sort(key=lambda x: (-x[0], x[1]))
         return candidates[0][2]
 
-    # 1. Buscar un producto por cada ingrediente de la receta
+    # 1. Buscar exactamente 1 producto por cada ingrediente de la receta
     for q in state.search_queries:
         best = _find_best(q)
         if best:
             selected.append(best)
             used_ids.add(best["id"])
+            sub = best.get("subcategory", "").lower()
+            if sub:
+                used_subcategories.add(sub)
 
-    # 2. Si no se encontró nada (no hay queries), seleccionar por categoría base
-    if not selected:
-        base_cats = {"Carne", "Arroz, legumbres y pasta", "Verdura y fruta",
+    # 2. Fallback: si no hay queries (no se reconoció receta), selección general
+    if not selected and not state.search_queries:
+        base_cats = {"Carne", "Arroz, legumbres y pasta", "Fruta y verdura",
                      "Aceite, especias y salsas", "Huevos, leche y mantequilla"}
         for p in state.available_products:
             if p["category"] in base_cats and p["id"] not in used_ids:
@@ -122,79 +140,177 @@ def _demo_nutritionist(state: CartState) -> CartState:
         tfat += p.get("fat_100g", 0) * factor
 
     macro_text = f"[Kcal: {int(tkcal)} | Proteína: {int(tprot)}g | Carbs: {int(tcarb)}g | Grasas: {int(tfat)}g]"
-    ingredients_found = ", ".join(q for q in state.search_queries) or "general"
+    recipe_name = state.notes or "general"
     state.agent_logs.append(
-        f"🥗 Nutricionista: Receta '{ingredients_found}' → "
-        f"{len(selected)} ingredientes encontrados. {macro_text}"
+        f"🥗 Nutricionista: Receta '{recipe_name}' → "
+        f"{len(selected)} ingredientes seleccionados. {macro_text}"
     )
     return state
 
 
 def _demo_logistics(state: CartState) -> CartState:
-    """Agente Logístico: sustituye por Hacendado SÓLO dentro de la misma subcategoría."""
+    """
+    Agente Logístico:
+      1. Sustituye por Hacendado en la misma subcategoría cuando es posible.
+      2. Prioriza productos con menor days_to_expiry (reducción desperdicio).
+    """
     final = []
     replaced = 0
+    waste_saved = 0
 
     for product in state.selected_products:
-        if product["brand"] == "Hacendado":
-            final.append(product)
-            continue
+        # ── Sustitución por Hacendado ─────────────────────
+        if product["brand"] != "Hacendado":
+            alternative = None
+            best_expiry = 9999
 
-        # Buscar alternativa Hacendado en la MISMA subcategoría
-        alternative = next(
-            (p for p in state.available_products
-             if p["brand"] == "Hacendado"
-             and p["subcategory"] == product["subcategory"]
-             and p not in final),
-            None,
-        )
-        if alternative:
-            final.append(alternative)
-            replaced += 1
+            for p in state.available_products:
+                if (p["brand"] == "Hacendado"
+                        and p["subcategory"] == product["subcategory"]
+                        and p not in final
+                        and p["id"] != product["id"]):
+                    # Preferir la alternativa con menor caducidad (reduce desperdicio)
+                    expiry = p.get("days_to_expiry", 180)
+                    if alternative is None or expiry < best_expiry:
+                        alternative = p
+                        best_expiry = expiry
+
+            if alternative:
+                final.append(alternative)
+                replaced += 1
+                continue
+
+        # ── Dentro de Hacendado: priorizar caducidad próxima ─
+        # Si hay un producto equivalente (misma subcategoría) que caduca antes, sustituir
+        product_expiry = product.get("days_to_expiry", 180)
+        shorter_expiry = None
+
+        for p in state.available_products:
+            if (p["subcategory"] == product["subcategory"]
+                    and p["brand"] == product["brand"]
+                    and p["id"] != product["id"]
+                    and p not in final):
+                p_expiry = p.get("days_to_expiry", 180)
+                if p_expiry < product_expiry:
+                    if shorter_expiry is None or p_expiry < shorter_expiry.get("days_to_expiry", 180):
+                        shorter_expiry = p
+
+        if shorter_expiry:
+            final.append(shorter_expiry)
+            waste_saved += 1
         else:
             final.append(product)
 
     state.selected_products = final
     pct = sum(1 for p in final if p["brand"] == "Hacendado") / max(len(final), 1) * 100
-    state.agent_logs.append(
-        f"📦 Logístico: {pct:.0f}% Hacendado (máximo margen). "
-        f"{replaced} sustituciones realizadas."
-    )
+
+    # Calcular días promedio de caducidad de la cesta
+    avg_expiry = sum(p.get("days_to_expiry", 180) for p in final) / max(len(final), 1)
+
+    log_parts = [f"📦 Logístico: {pct:.0f}% Hacendado (máximo margen)."]
+    if replaced:
+        log_parts.append(f"{replaced} sustituciones de marca.")
+    if waste_saved:
+        log_parts.append(f"{waste_saved} productos sustituidos por cercanía de caducidad.")
+    log_parts.append(f"Caducidad media: {avg_expiry:.0f} días.")
+
+    state.agent_logs.append(" ".join(log_parts))
     return state
 
 
 def _demo_financial(state: CartState) -> CartState:
-    """Agente Financiero: ajusta al presupuesto protegiendo ingredientes esenciales."""
-    # Marcar qué productos son esenciales (coinciden con los search_queries)
-    def is_essential(p):
-        name_l = p["name"].lower()
-        cat_l = p["category"].lower()
-        sub_l = p.get("subcategory", "").lower()
-        return any(
-            q.lower() in name_l or q.lower() in cat_l or q.lower() in sub_l
-            for q in state.search_queries
-        )
+    """
+    Agente Financiero:
+      1. Asegura que los ingredientes esenciales caben en el presupuesto.
+      2. Si queda margen, añade complementos lógicos (nunca relleno aleatorio).
+      3. Si no hay margen suficiente, recorta los menos esenciales.
+    """
+    # ── Fase 1: Calcular el coste de la receta base ──────
+    base_total = sum(p["price"] for p in state.selected_products)
 
-    # Ordenar: esenciales primero (no se eliminan), luego por precio asc
-    state.selected_products.sort(
-        key=lambda p: (0 if is_essential(p) else 1, p["price"])
-    )
+    if base_total <= state.budget:
+        # Todo cabe — mantener la receta completa
+        final_cart = list(state.selected_products)
+        running_total = base_total
+    else:
+        # No cabe todo — recortar los más caros no esenciales
+        # Los primeros ingredientes en search_queries son más importantes
+        def essentiality(p):
+            name_l = p["name"].lower()
+            for i, q in enumerate(state.search_queries):
+                if q.lower() in name_l:
+                    return i  # Más esencial = índice más bajo
+            return 999  # No esencial
 
-    final_cart = []
-    running_total = 0.0
+        sorted_products = sorted(state.selected_products, key=lambda p: essentiality(p))
+        final_cart = []
+        running_total = 0.0
+        for product in sorted_products:
+            if running_total + product["price"] <= state.budget:
+                final_cart.append(product)
+                running_total += product["price"]
 
-    for product in state.selected_products:
-        if running_total + product["price"] <= state.budget:
-            final_cart.append(product)
-            running_total += product["price"]
+    # ── Fase 2: Complementos lógicos si hay margen ───────
+    remaining = state.budget - running_total
+    added_complements = []
+
+    if remaining >= 0.50:
+        # Complementos según tipo de comida. Solo añadimos lo que tenga sentido.
+        complements = _get_smart_complements(state.meal_type, state.selected_products)
+
+        for complement_query in complements:
+            if remaining < 0.50:
+                break
+            # Buscar el producto más barato que coincida
+            best = None
+            for p in state.available_products:
+                if p["id"] in {x["id"] for x in final_cart}:
+                    continue
+                name_l = p["name"].lower()
+                if complement_query.lower() in name_l:
+                    if best is None or p["price"] < best["price"]:
+                        best = p
+
+            if best and best["price"] <= remaining:
+                final_cart.append(best)
+                remaining -= best["price"]
+                running_total += best["price"]
+                added_complements.append(best["name"])
 
     state.selected_products = final_cart
     state.total = round(running_total, 2)
-    state.agent_logs.append(
-        f"💰 Financiero: Cesta final {state.total}€ / {state.budget}€ presupuesto. "
-        f"Ahorro: {state.budget - state.total:.2f}€."
-    )
+
+    log = f"💰 Financiero: Cesta final {state.total}€ / {state.budget}€ presupuesto."
+    if added_complements:
+        log += f" Complementos añadidos: {', '.join(added_complements)}."
+    log += f" Ahorro: {state.budget - state.total:.2f}€."
+
+    state.agent_logs.append(log)
     return state
+
+
+def _get_smart_complements(meal_type: str, current_products: list[dict]) -> list[str]:
+    """
+    Devuelve una lista de complementos lógicos según el tipo de comida,
+    excluyendo categorías ya presentes en la cesta.
+    """
+    current_cats = {p.get("category", "").lower() for p in current_products}
+    current_subs = {p.get("subcategory", "").lower() for p in current_products}
+
+    # Complementos por tipo de comida (solo si no están ya en la cesta)
+    complements = []
+
+    if meal_type in ("comida", "cena"):
+        if "pan" not in current_subs and "pan de molde" not in current_subs:
+            complements.append("barra de pan")
+        if "agua" not in " ".join(p["name"].lower() for p in current_products):
+            complements.append("agua mineral")
+
+    elif meal_type == "desayuno":
+        if "zumo" not in " ".join(p["name"].lower() for p in current_products):
+            complements.append("zumo de naranja")
+
+    return complements
 
 
 def run_agents_demo(

@@ -67,6 +67,7 @@ class ProductOut(BaseModel):
     carbs_100g: float
     fat_100g: float
     image_url: str
+    days_to_expiry: int
 
 
 class CartResponse(BaseModel):

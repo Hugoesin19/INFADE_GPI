@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS products (
     carbs_100g      REAL    DEFAULT 0,
     fat_100g        REAL    DEFAULT 0,
     image_url       TEXT    DEFAULT '',
-    share_url       TEXT    DEFAULT ''
+    share_url       TEXT    DEFAULT '',
+    days_to_expiry  INTEGER DEFAULT 180
 );
 """
 
@@ -106,6 +107,8 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
     for field in ("kcal_100g", "protein_100g", "carbs_100g", "fat_100g", "unit_size"):
         if d.get(field) is None:
             d[field] = 0.0
+    if d.get("days_to_expiry") is None:
+        d["days_to_expiry"] = 180
     for field in ("image_url", "packaging", "size_format", "subcategory", "brand"):
         if d.get(field) is None:
             d[field] = ""
