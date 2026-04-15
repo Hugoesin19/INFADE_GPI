@@ -87,5 +87,11 @@ def translate_prompt(user_text: str) -> dict[str, Any]:
         if budget_match:
             fallback["budget"] = float(budget_match.group(1))
             
+        diet_text = user_text.lower()
+        if "prote" in diet_text:
+            fallback["diet"] = "alta proteína"
+        elif "vegan" in diet_text or "vegetariana" in diet_text:
+            fallback["diet"] = "vegetariano"
+            
         fallback["search_queries"] = words
         return fallback
