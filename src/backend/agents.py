@@ -26,6 +26,7 @@ class CartState:
     diet: str = "equilibrado"
     meal_type: str = "general"
     notes: str = ""
+    search_queries: list[str] = field(default_factory=list)
     total: float = 0.0
     agent_logs: list[str] = field(default_factory=list)
 
@@ -35,38 +36,49 @@ class CartState:
 # ═══════════════════════════════════════════════════════════
 
 def _demo_nutritionist(state: CartState) -> CartState:
-    """Agente Nutricionista (demo): selecciona productos variados por categoría."""
-    categories_needed = set()
-    
-    if state.meal_type in ("comida", "cena", "general", "semanal"):
-        categories_needed = {"carne", "verduras", "cereales", "aceites"}
-    elif state.meal_type == "desayuno":
-        categories_needed = {"lácteos", "cereales", "panadería"}
-    
-    if not categories_needed:
-        categories_needed = {"carne", "verduras", "cereales", "aceites", "legumbres"}
-
+    """Agente Nutricionista: selecciona estrictamente los ingredientes para cumplir la receta pedida."""
     selected = []
-    used_categories = set()
-
-    # Garantizar al menos un producto por categoría necesaria
-    for cat in categories_needed:
-        for product in state.available_products:
-            if product["category"] == cat and cat not in used_categories:
-                selected.append(product)
-                used_categories.add(cat)
-                break
-
-    # Completar con productos de alto valor nutricional
+    matched_queries = set()
+    
+    # 1. Priorizar búsqueda de la receta del usuario
+    if state.search_queries:
+        for q in state.search_queries:
+            q_lower = q.lower()
+            for product in state.available_products:
+                name_match = q_lower in product["name"].lower()
+                cat_match = q_lower in product["category"].lower()
+                if (name_match or cat_match) and q_lower not in matched_queries and product not in selected:
+                    selected.append(product)
+                    matched_queries.add(q_lower)
+                    break
+                    
+    # 2. Completar para rellenar la dieta / personas si hiciera falta
     for product in state.available_products:
-        if product not in selected and len(selected) < state.people + 4:
-            if product.get("protein_100g", 0) > 5:
+        if product not in selected and len(selected) < state.people + 3:
+            if "proteína" in state.diet and product.get("protein_100g", 0) > 10:
+                selected.append(product)
+            elif "vegetariano" in state.diet and product["category"] not in ("carne", "pescado"):
+                selected.append(product)
+            elif state.diet == "equilibrado" and product["category"] in ("verduras", "fruta", "lácteos", "cereales"):
                 selected.append(product)
 
     state.selected_products = selected
+    
+    # Calcular macros totales
+    tkcal = tprot = tcarb = tfat = 0.0
+    for p in state.selected_products:
+        factor = (p.get("unit_size", 0.0) or 0) * 10
+        if factor == 0: factor = 1
+        tkcal += p.get("kcal_100g", 0) * factor
+        tprot += p.get("protein_100g", 0) * factor
+        tcarb += p.get("carbs_100g", 0) * factor
+        tfat +=  p.get("fat_100g", 0) * factor
+        
+    macro_text = f"[Kcal: {int(tkcal)} | Proteína: {int(tprot)}g | Carbs: {int(tcarb)}g | Grasas: {int(tfat)}g]"
+    
     state.agent_logs.append(
         f"🥗 Nutricionista: Seleccionados {len(selected)} productos "
-        f"de {len(used_categories)} categorías para dieta {state.diet}."
+        f"para dieta {state.diet}. {macro_text}"
     )
     return state
 
@@ -100,9 +112,13 @@ def _demo_logistics(state: CartState) -> CartState:
 
 
 def _demo_financial(state: CartState) -> CartState:
-    """Agente Financiero (demo): ajusta la cesta al presupuesto."""
-    # Ordenar por precio ascendente
-    state.selected_products.sort(key=lambda p: p["price"])
+    """Agente Financiero: ajusta la cesta al presupuesto sin eliminar productos clave."""
+    # Los productos esenciales (mencionados en la receta) no deben borrarse salvo caso extremo
+    def priority(p):
+        is_essential = any(q.lower() in p["name"].lower() or q.lower() in p["category"].lower() for q in state.search_queries)
+        return (0 if is_essential else 1, p["price"])
+        
+    state.selected_products.sort(key=priority)
 
     final_cart = []
     running_total = 0.0
@@ -140,6 +156,7 @@ def run_agents_demo(
         diet=constraints.get("diet", "equilibrado"),
         meal_type=constraints.get("meal_type", "general"),
         notes=constraints.get("notes", ""),
+        search_queries=constraints.get("search_queries", []),
     )
 
     # Ronda 1 de negociación
@@ -197,6 +214,7 @@ def run_agents_llm(
         diet=constraints.get("diet", "equilibrado"),
         meal_type=constraints.get("meal_type", "general"),
         notes=constraints.get("notes", ""),
+        search_queries=constraints.get("search_queries", []),
     )
 
     product_summary = _build_product_summary(available_products, max_items=30)
@@ -223,7 +241,20 @@ def run_agents_llm(
         data = _parse_agent_json(raw)
         ids = data.get("selected_ids", [])
         state.selected_products = [id_map[i] for i in ids if i in id_map]
-        state.agent_logs.append(f"🥗 Nutricionista: {data.get('reasoning', '')}")
+        
+        # Calcular macros totales
+        tkcal = tprot = tcarb = tfat = 0.0
+        for p in state.selected_products:
+            # unit_size suele venir en kg o L. Multiplicamos x10 para pasar de porción 100g al total
+            factor = (p.get("unit_size", 0.0) or 0) * 10
+            if factor == 0: factor = 1 # Fallback mínimo
+            tkcal += p.get("kcal_100g", 0) * factor
+            tprot += p.get("protein_100g", 0) * factor
+            tcarb += p.get("carbs_100g", 0) * factor
+            tfat +=  p.get("fat_100g", 0) * factor
+            
+        macro_text = f"[Kcal: {int(tkcal)} | Proteína: {int(tprot)}g | Carbs: {int(tcarb)}g | Grasas: {int(tfat)}g]"
+        state.agent_logs.append(f"🥗 Nutricionista: {data.get('reasoning', '')} {macro_text}")
     except Exception as e:
         # Fallback al demo
         state = _demo_nutritionist(state)
