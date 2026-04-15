@@ -55,19 +55,24 @@ def get_all_products(queries: list[str] = None) -> list[dict]:
     if not queries:
         rows = conn.execute("SELECT * FROM products").fetchall()
     else:
-        conditions = []
-        params = []
+        # Buscar por cada keyword y mezclar resultados (máx 30 por keyword)
+        seen_ids = set()
+        rows = []
         for q in queries:
-            conditions.append("(name LIKE ? OR category LIKE ? OR subcategory LIKE ?)")
             word = f"%{q}%"
-            params.extend([word, word, word])
-        sql = "SELECT * FROM products WHERE " + " OR ".join(conditions) + " LIMIT 100"
-        rows = conn.execute(sql, params).fetchall()
-        
+            partial = conn.execute(
+                "SELECT * FROM products WHERE name LIKE ? OR category LIKE ? OR subcategory LIKE ? LIMIT 30",
+                (word, word, word)
+            ).fetchall()
+            for r in partial:
+                rid = r["id"]
+                if rid not in seen_ids:
+                    seen_ids.add(rid)
+                    rows.append(r)
+
         if not rows:
-             # Fallback si no hay coincidencias
-             rows = conn.execute("SELECT * FROM products").fetchall()
-             
+            rows = conn.execute("SELECT * FROM products").fetchall()
+
     conn.close()
     return [_row_to_dict(r) for r in rows]
 
@@ -98,9 +103,10 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
         except json.JSONDecodeError:
             d["allergens"] = []
     # Defaults para campos opcionales
-    for field in ("kcal_100g", "protein_100g", "carbs_100g", "fat_100g"):
+    for field in ("kcal_100g", "protein_100g", "carbs_100g", "fat_100g", "unit_size"):
         if d.get(field) is None:
             d[field] = 0.0
-    if d.get("image_url") is None:
-        d["image_url"] = ""
+    for field in ("image_url", "packaging", "size_format", "subcategory", "brand"):
+        if d.get(field) is None:
+            d[field] = ""
     return d

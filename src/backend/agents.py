@@ -36,89 +36,149 @@ class CartState:
 # ═══════════════════════════════════════════════════════════
 
 def _demo_nutritionist(state: CartState) -> CartState:
-    """Agente Nutricionista: selecciona estrictamente los ingredientes para cumplir la receta pedida."""
+    """Agente Nutricionista: busca los ingredientes reales de la receta pedida."""
     selected = []
-    matched_queries = set()
-    
-    # 1. Priorizar búsqueda de la receta del usuario
-    if state.search_queries:
-        for q in state.search_queries:
-            q_lower = q.lower()
-            for product in state.available_products:
-                name_match = q_lower in product["name"].lower()
-                cat_match = q_lower in product["category"].lower()
-                if (name_match or cat_match) and q_lower not in matched_queries and product not in selected:
-                    selected.append(product)
-                    matched_queries.add(q_lower)
+    used_ids = set()
+
+    def _find_best(keyword: str) -> dict | None:
+        """Encuentra el mejor producto para un ingrediente con scoring de relevancia."""
+        candidates = []
+        kw = keyword.lower()
+        # Categorías de comida fresca (preferidas para recetas)
+        fresh_cats = {"carne", "verdura y fruta", "huevos, leche y mantequilla",
+                      "arroz, legumbres y pasta", "aceite, especias y salsas"}
+        # Palabras que indican que un producto NO es el ingrediente real
+        noise_words = {"sorpresa", "sabor", "aroma", "ambientador", "gel", "jabón"}
+
+        for p in state.available_products:
+            if p["id"] in used_ids:
+                continue
+            name_l = p["name"].lower()
+            cat_l = p["category"].lower()
+            sub_l = p.get("subcategory", "").lower()
+            if kw in name_l or kw in cat_l or kw in sub_l:
+                # Penalizar productos engañosos
+                if any(nw in name_l for nw in noise_words):
+                    continue  # Descartar completamente
+
+                score = 0
+                # El nombre empieza con el keyword → producto real
+                if name_l.startswith(kw):
+                    score += 100
+                # La subcategoría contiene el keyword → categoría directa
+                elif kw in sub_l:
+                    score += 80
+                # Keyword como palabra en el nombre
+                else:
+                    # "sazonador para X" → score bajo
+                    words = name_l.split()
+                    if kw in words or any(w.startswith(kw) for w in words):
+                        score += 60
+                    else:
+                        score += 30
+
+                # Bonus comida fresca
+                if cat_l in fresh_cats:
+                    score += 15
+                # Bonus Hacendado
+                if p["brand"] == "Hacendado":
+                    score += 10
+                candidates.append((score, p["price"], p))
+        if not candidates:
+            return None
+        # Mayor score primero, luego precio más bajo
+        candidates.sort(key=lambda x: (-x[0], x[1]))
+        return candidates[0][2]
+
+    # 1. Buscar un producto por cada ingrediente de la receta
+    for q in state.search_queries:
+        best = _find_best(q)
+        if best:
+            selected.append(best)
+            used_ids.add(best["id"])
+
+    # 2. Si no se encontró nada (no hay queries), seleccionar por categoría base
+    if not selected:
+        base_cats = {"Carne", "Arroz, legumbres y pasta", "Verdura y fruta",
+                     "Aceite, especias y salsas", "Huevos, leche y mantequilla"}
+        for p in state.available_products:
+            if p["category"] in base_cats and p["id"] not in used_ids:
+                selected.append(p)
+                used_ids.add(p["id"])
+                if len(selected) >= 5:
                     break
-                    
-    # 2. Completar para rellenar la dieta / personas si hiciera falta
-    for product in state.available_products:
-        if product not in selected and len(selected) < state.people + 3:
-            if "proteína" in state.diet and product.get("protein_100g", 0) > 10:
-                selected.append(product)
-            elif "vegetariano" in state.diet and product["category"] not in ("carne", "pescado"):
-                selected.append(product)
-            elif state.diet == "equilibrado" and product["category"] in ("verduras", "fruta", "lácteos", "cereales"):
-                selected.append(product)
 
     state.selected_products = selected
-    
+
     # Calcular macros totales
     tkcal = tprot = tcarb = tfat = 0.0
     for p in state.selected_products:
         factor = (p.get("unit_size", 0.0) or 0) * 10
-        if factor == 0: factor = 1
+        if factor == 0:
+            factor = 1
         tkcal += p.get("kcal_100g", 0) * factor
         tprot += p.get("protein_100g", 0) * factor
         tcarb += p.get("carbs_100g", 0) * factor
-        tfat +=  p.get("fat_100g", 0) * factor
-        
+        tfat += p.get("fat_100g", 0) * factor
+
     macro_text = f"[Kcal: {int(tkcal)} | Proteína: {int(tprot)}g | Carbs: {int(tcarb)}g | Grasas: {int(tfat)}g]"
-    
+    ingredients_found = ", ".join(q for q in state.search_queries) or "general"
     state.agent_logs.append(
-        f"🥗 Nutricionista: Seleccionados {len(selected)} productos "
-        f"para dieta {state.diet}. {macro_text}"
+        f"🥗 Nutricionista: Receta '{ingredients_found}' → "
+        f"{len(selected)} ingredientes encontrados. {macro_text}"
     )
     return state
 
 
 def _demo_logistics(state: CartState) -> CartState:
-    """Agente Logístico (demo): prioriza marca Hacendado."""
-    # Reordenar: Hacendado primero
-    hacendado = [p for p in state.selected_products if p["brand"] == "Hacendado"]
-    other = [p for p in state.selected_products if p["brand"] != "Hacendado"]
-    
-    # Sustituir productos no-Hacendado si hay alternativa
-    for i, product in enumerate(other):
+    """Agente Logístico: sustituye por Hacendado SÓLO dentro de la misma subcategoría."""
+    final = []
+    replaced = 0
+
+    for product in state.selected_products:
+        if product["brand"] == "Hacendado":
+            final.append(product)
+            continue
+
+        # Buscar alternativa Hacendado en la MISMA subcategoría
         alternative = next(
             (p for p in state.available_products
              if p["brand"] == "Hacendado"
-             and p["category"] == product["category"]
-             and p not in hacendado),
+             and p["subcategory"] == product["subcategory"]
+             and p not in final),
             None,
         )
         if alternative:
-            hacendado.append(alternative)
+            final.append(alternative)
+            replaced += 1
         else:
-            hacendado.append(product)
+            final.append(product)
 
-    state.selected_products = hacendado
-    pct = sum(1 for p in state.selected_products if p["brand"] == "Hacendado") / max(len(state.selected_products), 1) * 100
+    state.selected_products = final
+    pct = sum(1 for p in final if p["brand"] == "Hacendado") / max(len(final), 1) * 100
     state.agent_logs.append(
-        f"📦 Logístico: {pct:.0f}% de la cesta es marca Hacendado (máximo margen)."
+        f"📦 Logístico: {pct:.0f}% Hacendado (máximo margen). "
+        f"{replaced} sustituciones realizadas."
     )
     return state
 
 
 def _demo_financial(state: CartState) -> CartState:
-    """Agente Financiero: ajusta la cesta al presupuesto sin eliminar productos clave."""
-    # Los productos esenciales (mencionados en la receta) no deben borrarse salvo caso extremo
-    def priority(p):
-        is_essential = any(q.lower() in p["name"].lower() or q.lower() in p["category"].lower() for q in state.search_queries)
-        return (0 if is_essential else 1, p["price"])
-        
-    state.selected_products.sort(key=priority)
+    """Agente Financiero: ajusta al presupuesto protegiendo ingredientes esenciales."""
+    # Marcar qué productos son esenciales (coinciden con los search_queries)
+    def is_essential(p):
+        name_l = p["name"].lower()
+        cat_l = p["category"].lower()
+        sub_l = p.get("subcategory", "").lower()
+        return any(
+            q.lower() in name_l or q.lower() in cat_l or q.lower() in sub_l
+            for q in state.search_queries
+        )
+
+    # Ordenar: esenciales primero (no se eliminan), luego por precio asc
+    state.selected_products.sort(
+        key=lambda p: (0 if is_essential(p) else 1, p["price"])
+    )
 
     final_cart = []
     running_total = 0.0
@@ -127,13 +187,6 @@ def _demo_financial(state: CartState) -> CartState:
         if running_total + product["price"] <= state.budget:
             final_cart.append(product)
             running_total += product["price"]
-
-    # Si queda presupuesto, añadir más productos disponibles
-    if running_total < state.budget * 0.7:
-        for product in state.available_products:
-            if product not in final_cart and running_total + product["price"] <= state.budget:
-                final_cart.append(product)
-                running_total += product["price"]
 
     state.selected_products = final_cart
     state.total = round(running_total, 2)
