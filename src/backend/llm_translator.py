@@ -77,21 +77,79 @@ def translate_prompt(user_text: str) -> dict[str, Any]:
         print(f"[LLM] Error al llamar a Gemini, usando modo demo: {e}")
         fallback = DEMO_RESPONSE.copy()
         fallback["notes"] = user_text
-        
-        # Extracción naive de keywords para que al menos busque algo coherente
-        words = [w.strip(",.") for w in user_text.lower().split() if len(w) > 3]
-        
-        # Intentar extraer presupuesto del texto naively
+
         import re
-        budget_match = re.search(r"(\d+)\s*(euros|€)", user_text)
+        text = user_text.lower()
+
+        # Extraer presupuesto
+        budget_match = re.search(r"(\d+)\s*(euros|€)", text)
         if budget_match:
             fallback["budget"] = float(budget_match.group(1))
-            
-        diet_text = user_text.lower()
-        if "prote" in diet_text:
+
+        # Extraer personas
+        people_match = re.search(r"(\d+)\s*persona", text)
+        if people_match:
+            fallback["people"] = int(people_match.group(1))
+
+        # Dieta
+        if "prote" in text:
             fallback["diet"] = "alta proteína"
-        elif "vegan" in diet_text or "vegetariana" in diet_text:
+        elif "vegan" in text or "vegetariana" in text:
             fallback["diet"] = "vegetariano"
-            
-        fallback["search_queries"] = words
+
+        # Recetas conocidas → ingredientes directos
+        _RECIPE_MAP = {
+            "paella":       ["arroz", "pollo", "verdura", "aceite", "azafrán"],
+            "tortilla":     ["huevo", "patata", "aceite", "cebolla"],
+            "ensalada":     ["lechuga", "tomate", "atún", "aceite", "maíz"],
+            "pasta":        ["pasta", "tomate", "queso", "carne", "aceite"],
+            "pizza":        ["pizza", "queso", "tomate"],
+            "hamburguesa":  ["hamburguesa", "pan", "lechuga", "tomate", "queso"],
+            "gazpacho":     ["tomate", "pepino", "pimiento", "aceite", "vinagre"],
+            "cocido":       ["garbanzo", "carne", "verdura", "patata"],
+            "lentejas":     ["lenteja", "chorizo", "patata", "zanahoria"],
+            "macarrones":   ["pasta", "tomate", "carne", "queso"],
+            "arroz":        ["arroz", "pollo", "verdura"],
+            "pollo":        ["pollo", "patata", "aceite"],
+            "sopa":         ["verdura", "fideos", "pollo"],
+            "bocadillo":    ["pan", "jamón", "queso"],
+            "desayuno":     ["leche", "cereales", "pan", "mermelada", "mantequilla"],
+        }
+
+        queries = []
+        for recipe, ingredients in _RECIPE_MAP.items():
+            if recipe in text:
+                queries.extend(ingredients)
+                fallback["notes"] = recipe
+                break
+
+        # Si no coincidió ninguna receta, extraer sólo palabras de comida
+        if not queries:
+            _FOOD_VOCAB = {
+                "arroz", "pollo", "carne", "pescado", "verdura", "fruta", "leche",
+                "huevo", "pan", "queso", "tomate", "lechuga", "patata", "cebolla",
+                "atún", "aceite", "pasta", "jamón", "yogur", "mantequilla", "cereales",
+                "garbanzo", "lenteja", "maíz", "pimiento", "zanahoria", "pepino",
+                "azúcar", "sal", "harina", "chorizo", "salchichón", "lomo",
+                "salmón", "merluza", "gamba", "pechuga", "muslo", "costilla",
+                "manzana", "plátano", "naranja", "fresa", "uva", "melón",
+                "cerveza", "vino", "agua", "zumo", "refresco", "café", "chocolate",
+                "galleta", "magdalena", "croissant", "pizza", "hamburguesa",
+                "fideos", "espagueti", "macarrón", "vinagre", "mermelada",
+                "azafrán", "pimentón", "orégano", "albahaca",
+            }
+            for word in text.split():
+                w = word.strip(",.")
+                if w in _FOOD_VOCAB or any(w.startswith(f) for f in _FOOD_VOCAB):
+                    queries.append(w)
+
+        # Deduplicar preservando orden
+        seen = set()
+        unique_queries = []
+        for q in queries:
+            if q not in seen:
+                seen.add(q)
+                unique_queries.append(q)
+
+        fallback["search_queries"] = unique_queries
         return fallback
