@@ -214,6 +214,11 @@ def translate_prompt(user_text: str) -> dict[str, Any]:
     """
     Traduce el texto libre del usuario a un dict estructurado.
     Si no hay API key, devuelve la respuesta demo.
+
+    Returns:
+        dict con claves:
+          - "constraints": dict con budget, people, allergens, diet, etc.
+          - "explicit": list[str] de campos que el usuario mencionó explícitamente
     """
     print(f"DEBUG PROMPT: {user_text!r}")
     if DEMO_MODE:
@@ -240,9 +245,11 @@ def translate_prompt(user_text: str) -> dict[str, Any]:
             result = json.loads(raw)
         except json.JSONDecodeError:
             # Fallback si el LLM no devuelve JSON limpio
-            result = _fallback_translate(user_text)
+            return _fallback_translate(user_text)
 
-        return result
+        # Detectar qué campos se extrajeron explícitamente vs defaults del LLM
+        explicit = _detect_explicit_fields(user_text, result)
+        return {"constraints": result, "explicit": explicit}
 
     except Exception as e:
         # Si la API key es inválida o nos pasamos de la cuota (429), fallback
@@ -250,10 +257,40 @@ def translate_prompt(user_text: str) -> dict[str, Any]:
         return _fallback_translate(user_text)
 
 
+def _detect_explicit_fields(user_text: str, constraints: dict) -> list[str]:
+    """
+    Detecta qué campos el usuario mencionó explícitamente en su prompt.
+    Esto permite saber qué NO sobreescribir con los defaults del perfil.
+    """
+    text = user_text.lower()
+    explicit = []
+
+    # Presupuesto: si hay números con €/euros
+    if re.search(r"\d+\s*(?:euros|€|eur)", text):
+        explicit.append("budget")
+
+    # Personas: si menciona personas/comensales o "para N"
+    if re.search(r"(?:persona|comensales|gente|para\s+\d+)", text):
+        explicit.append("people")
+
+    # Alérgenos: si menciona "sin X"
+    if re.search(r"(?:sin |no |libre de |alergi)", text):
+        explicit.append("allergens")
+
+    # Dieta: si menciona dieta específica
+    if re.search(r"(?:prote[ií]n|vegan|vegetarian|light|bajo en grasa|dieta)", text):
+        explicit.append("diet")
+
+    return explicit
+
+
 def _fallback_translate(user_text: str) -> dict[str, Any]:
     """
     Traductor determinista sin LLM.
     Extrae variables con regex y un mapa masivo de recetas.
+
+    Returns:
+        dict con claves "constraints" y "explicit"
     """
     text = user_text.lower().strip()
 
@@ -267,10 +304,13 @@ def _fallback_translate(user_text: str) -> dict[str, Any]:
         "notes": user_text,
     }
 
+    explicit = []
+
     # ── 1. Extraer presupuesto ────────────────────────────
     budget_match = re.search(r"(\d+(?:[.,]\d+)?)\s*(?:euros|€|eur)", text)
     if budget_match:
         result["budget"] = float(budget_match.group(1).replace(",", "."))
+        explicit.append("budget")
 
     # ── 2. Extraer personas ───────────────────────────────
     # Probar varios patrones: "para 4 personas", "para 4", "4 personas", "de 3"
@@ -286,6 +326,7 @@ def _fallback_translate(user_text: str) -> dict[str, Any]:
             n = int(m.group(1))
             if 1 <= n <= 20:  # Rango razonable
                 result["people"] = n
+                explicit.append("people")
                 break
 
     # ── 3. Extraer alérgenos ──────────────────────────────
@@ -306,16 +347,22 @@ def _fallback_translate(user_text: str) -> dict[str, Any]:
         if f"sin {keyword}" in text or f"no {keyword}" in text or f"libre de {keyword}" in text:
             if allergen not in result["allergens"]:
                 result["allergens"].append(allergen)
+    if result["allergens"]:
+        explicit.append("allergens")
 
     # ── 4. Extraer dieta ──────────────────────────────────
     if "prote" in text:
         result["diet"] = "alta proteína"
+        explicit.append("diet")
     elif "vegan" in text:
         result["diet"] = "vegano"
+        explicit.append("diet")
     elif "vegetarian" in text or "vegetariana" in text:
         result["diet"] = "vegetariano"
+        explicit.append("diet")
     elif "bajo en grasas" in text or "light" in text:
         result["diet"] = "bajo en grasas"
+        explicit.append("diet")
 
     # ── 5. Buscar receta en el mapa ───────────────────────
     matched_recipe = None
@@ -359,4 +406,4 @@ def _fallback_translate(user_text: str) -> dict[str, Any]:
                 queries.append(w)
         result["search_queries"] = queries
 
-    return result
+    return {"constraints": result, "explicit": explicit}

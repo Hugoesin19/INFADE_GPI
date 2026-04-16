@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import time
 from contextlib import asynccontextmanager
+from typing import Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +18,7 @@ from .database import init_db
 from .llm_translator import translate_prompt
 from .csp_filter import apply_filters
 from .agents import run_agents
+from .user_profile import get_profile, update_profile, add_spending
 
 
 # ── Lifespan ──────────────────────────────────────────────
@@ -82,7 +84,107 @@ class CartResponse(BaseModel):
     steps: list[dict]
 
 
-# ── Endpoints ─────────────────────────────────────────────
+class ProfileIn(BaseModel):
+    name: Optional[str] = None
+    people: Optional[int] = None
+    allergens: Optional[list[str]] = None
+    diet: Optional[str] = None
+    monthly_budget: Optional[float] = None
+    per_cart_budget: Optional[float] = None
+    preferences: Optional[str] = None
+
+
+class ProfileOut(BaseModel):
+    id: int
+    name: str
+    people: int
+    allergens: list[str]
+    diet: str
+    monthly_budget: float
+    per_cart_budget: float
+    month_spent: float
+    month_start: str
+    preferences: str
+    created_at: str
+    updated_at: str
+    monthly_remaining: float  # campo calculado
+
+
+class SpendingIn(BaseModel):
+    amount: float
+
+
+# ── Helpers ───────────────────────────────────────────────
+
+def _merge_profile_into_constraints(
+    constraints: dict,
+    explicit_fields: list[str],
+    profile: dict,
+) -> dict:
+    """
+    Fusiona el perfil del usuario como defaults en las constraints.
+    Los campos que el usuario mencionó explícitamente en el prompt
+    NO se sobreescriben.
+    """
+    # Personas: usar perfil si el prompt no lo especificó
+    if "people" not in explicit_fields:
+        constraints["people"] = profile["people"]
+
+    # Alérgenos: combinar (perfil + prompt) sin duplicados
+    if "allergens" not in explicit_fields:
+        # Si el prompt no mencionó alérgenos, usar los del perfil
+        constraints["allergens"] = list(profile.get("allergens", []))
+    else:
+        # Si el prompt sí mencionó, combinar ambos
+        prompt_allergens = set(constraints.get("allergens", []))
+        profile_allergens = set(profile.get("allergens", []))
+        constraints["allergens"] = list(prompt_allergens | profile_allergens)
+
+    # Presupuesto: usar perfil si el prompt no lo especificó
+    if "budget" not in explicit_fields:
+        constraints["budget"] = profile["per_cart_budget"]
+
+    # Dieta: usar perfil si el prompt no lo especificó
+    if "diet" not in explicit_fields:
+        constraints["diet"] = profile["diet"]
+
+    return constraints
+
+
+# ── Endpoints: Perfil ─────────────────────────────────────
+
+@app.get("/api/profile", response_model=ProfileOut)
+def get_user_profile():
+    """Devuelve el perfil del usuario (crea uno por defecto si no existe)."""
+    profile = get_profile()
+    profile["monthly_remaining"] = round(
+        profile["monthly_budget"] - profile["month_spent"], 2
+    )
+    return ProfileOut(**profile)
+
+
+@app.put("/api/profile", response_model=ProfileOut)
+def update_user_profile(data: ProfileIn):
+    """Actualiza el perfil del usuario con los campos proporcionados."""
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    profile = update_profile(update_data)
+    profile["monthly_remaining"] = round(
+        profile["monthly_budget"] - profile["month_spent"], 2
+    )
+    return ProfileOut(**profile)
+
+
+@app.post("/api/profile/spending", response_model=ProfileOut)
+def register_spending(data: SpendingIn):
+    """Registra un gasto en el presupuesto mensual."""
+    profile = add_spending(data.amount)
+    profile["monthly_remaining"] = round(
+        profile["monthly_budget"] - profile["month_spent"], 2
+    )
+    return ProfileOut(**profile)
+
+
+# ── Endpoints: Pipeline ──────────────────────────────────
 
 @app.get("/api/health")
 def health():
@@ -94,14 +196,26 @@ def generate_cart(request: CartRequest):
     """
     Pipeline completo:
       1. LLM Translator → extrae constraints
-      2. CSP Filter     → filtra productos seguros
-      3. Multi-Agent    → negocia cesta final
+      2. Fusión con perfil de usuario → inyecta defaults
+      3. CSP Filter     → filtra productos seguros
+      4. Multi-Agent    → negocia cesta final
     """
     steps = []
 
+    # ─── Paso 0: Cargar perfil del usuario ───────────────
+    profile = get_profile()
+
     # ─── Paso 1: Traductor LLM ───────────────────────────
     t0 = time.time()
-    constraints = translate_prompt(request.prompt)
+    translation = translate_prompt(request.prompt)
+    constraints = translation["constraints"]
+    explicit_fields = translation["explicit"]
+
+    # Fusionar perfil como defaults inteligentes
+    constraints = _merge_profile_into_constraints(
+        constraints, explicit_fields, profile
+    )
+
     steps.append({
         "id": 1,
         "text": "Analizando necesidades del cliente...",

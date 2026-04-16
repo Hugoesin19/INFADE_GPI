@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mercadona Autopilot Premium</title>
+    <meta name="description" content="Genera tu cesta de la compra inteligente con IA. Preferencias, alergias y presupuesto personalizados.">
 
     <!-- Fuentes Premium: Baskerville para Serif pesado, Inter para limpieza -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -33,6 +34,41 @@
         }
     </script>
 
+    <style>
+        /* Modal backdrop animation */
+        .modal-backdrop {
+            animation: fadeIn 0.2s ease-out;
+        }
+        .modal-panel {
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Budget bar animation */
+        .budget-bar-fill {
+            transition: width 0.8s ease-out;
+        }
+        /* Profile chip hover */
+        .profile-chip {
+            transition: all 0.2s ease;
+        }
+        .profile-chip:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,143,57,0.15);
+        }
+        /* Allergen checkbox custom */
+        .allergen-check:checked {
+            background-color: #008f39;
+            border-color: #008f39;
+        }
+    </style>
+
     <!-- React & ReactDOM (CDN) -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -45,15 +81,363 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useCallback } = React;
 
         const API_BASE = "http://localhost:8000";
+
+        // ── Allergen options ──────────────────────────────
+        const ALLERGEN_OPTIONS = [
+            { value: "gluten", label: "Gluten", emoji: "🌾" },
+            { value: "lactosa", label: "Lactosa", emoji: "🥛" },
+            { value: "huevo", label: "Huevo", emoji: "🥚" },
+            { value: "frutos_secos", label: "Frutos secos", emoji: "🥜" },
+            { value: "crustáceos", label: "Crustáceos", emoji: "🦐" },
+            { value: "pescado", label: "Pescado", emoji: "🐟" },
+            { value: "soja", label: "Soja", emoji: "🫘" },
+        ];
+
+        const DIET_OPTIONS = [
+            { value: "equilibrado", label: "Equilibrado" },
+            { value: "vegetariano", label: "Vegetariano" },
+            { value: "vegano", label: "Vegano" },
+            { value: "alta proteína", label: "Alta proteína" },
+            { value: "bajo en grasas", label: "Bajo en grasas" },
+        ];
+
+        // ═══════════════════════════════════════════════════
+        //  PROFILE MODAL COMPONENT
+        // ═══════════════════════════════════════════════════
+
+        const ProfileModal = ({ isOpen, onClose, profile, onSave }) => {
+            const [form, setForm] = useState({
+                name: "",
+                people: 2,
+                allergens: [],
+                diet: "equilibrado",
+                monthly_budget: 200,
+                per_cart_budget: 25,
+                preferences: "",
+            });
+            const [saving, setSaving] = useState(false);
+
+            useEffect(() => {
+                if (profile) {
+                    setForm({
+                        name: profile.name || "",
+                        people: profile.people || 2,
+                        allergens: profile.allergens || [],
+                        diet: profile.diet || "equilibrado",
+                        monthly_budget: profile.monthly_budget || 200,
+                        per_cart_budget: profile.per_cart_budget || 25,
+                        preferences: profile.preferences || "",
+                    });
+                }
+            }, [profile, isOpen]);
+
+            const handleAllergenToggle = (allergen) => {
+                setForm(prev => ({
+                    ...prev,
+                    allergens: prev.allergens.includes(allergen)
+                        ? prev.allergens.filter(a => a !== allergen)
+                        : [...prev.allergens, allergen]
+                }));
+            };
+
+            const handleSave = async () => {
+                setSaving(true);
+                try {
+                    const res = await fetch(`${API_BASE}/api/profile`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(form),
+                    });
+                    if (res.ok) {
+                        const updated = await res.json();
+                        onSave(updated);
+                        onClose();
+                    }
+                } catch (err) {
+                    console.error("Error saving profile:", err);
+                } finally {
+                    setSaving(false);
+                }
+            };
+
+            if (!isOpen) return null;
+
+            const budgetUsedPct = profile
+                ? Math.min(100, (profile.month_spent / Math.max(profile.monthly_budget, 1)) * 100)
+                : 0;
+
+            return (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center" id="profile-modal">
+                    {/* Backdrop */}
+                    <div
+                        className="absolute inset-0 bg-black/30 backdrop-blur-sm modal-backdrop"
+                        onClick={onClose}
+                    ></div>
+
+                    {/* Panel */}
+                    <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto modal-panel">
+                        {/* Header */}
+                        <div className="sticky top-0 bg-white rounded-t-3xl border-b border-slate-100 px-8 py-6 flex items-center justify-between z-10">
+                            <div>
+                                <h2 className="font-serif font-bold text-slate-900 text-2xl">Mi Perfil</h2>
+                                <p className="text-slate-400 text-sm mt-1">Personaliza tu experiencia de compra</p>
+                            </div>
+                            <button
+                                onClick={onClose}
+                                className="w-10 h-10 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center transition-colors"
+                                id="close-profile-btn"
+                            >
+                                <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="px-8 py-6 space-y-7">
+                            {/* Nombre del hogar */}
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                    🏠 Nombre del hogar
+                                </label>
+                                <input
+                                    type="text"
+                                    value={form.name}
+                                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                                    placeholder="Ej: Familia Aguilar"
+                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-merca/20 focus:border-merca transition-all"
+                                    id="profile-name-input"
+                                />
+                            </div>
+
+                            {/* Personas */}
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                    👥 Número de personas
+                                </label>
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={() => setForm({ ...form, people: Math.max(1, form.people - 1) })}
+                                        className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-xl font-bold text-slate-600 transition-all active:scale-95"
+                                    >−</button>
+                                    <span className="text-3xl font-bold text-slate-900 w-12 text-center" id="people-count">{form.people}</span>
+                                    <button
+                                        onClick={() => setForm({ ...form, people: Math.min(20, form.people + 1) })}
+                                        className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-xl font-bold text-slate-600 transition-all active:scale-95"
+                                    >+</button>
+                                </div>
+                            </div>
+
+                            {/* Alergias */}
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-3">
+                                    🚫 Alergias e intolerancias
+                                </label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {ALLERGEN_OPTIONS.map(opt => (
+                                        <button
+                                            key={opt.value}
+                                            onClick={() => handleAllergenToggle(opt.value)}
+                                            className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm font-medium transition-all active:scale-[0.98] ${
+                                                form.allergens.includes(opt.value)
+                                                    ? 'bg-red-50 border-red-200 text-red-700'
+                                                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                                            }`}
+                                            id={`allergen-${opt.value}`}
+                                        >
+                                            <span className="text-lg">{opt.emoji}</span>
+                                            <span>{opt.label}</span>
+                                            {form.allergens.includes(opt.value) && (
+                                                <svg className="w-4 h-4 ml-auto text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Dieta */}
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                    🥗 Dieta preferida
+                                </label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {DIET_OPTIONS.map(opt => (
+                                        <button
+                                            key={opt.value}
+                                            onClick={() => setForm({ ...form, diet: opt.value })}
+                                            className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all active:scale-[0.98] ${
+                                                form.diet === opt.value
+                                                    ? 'bg-merca/10 border-merca/30 text-merca'
+                                                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                                            }`}
+                                            id={`diet-${opt.value}`}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Presupuesto por compra */}
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                    💰 Presupuesto por compra
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        min="5"
+                                        max="500"
+                                        step="5"
+                                        value={form.per_cart_budget}
+                                        onChange={(e) => setForm({ ...form, per_cart_budget: parseFloat(e.target.value) || 25 })}
+                                        className="w-full px-4 py-3 pr-10 rounded-xl border border-slate-200 text-slate-800 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-merca/20 focus:border-merca transition-all"
+                                        id="cart-budget-input"
+                                    />
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">€</span>
+                                </div>
+                            </div>
+
+                            {/* Presupuesto mensual */}
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                    📅 Presupuesto mensual
+                                </label>
+                                <div className="relative mb-3">
+                                    <input
+                                        type="number"
+                                        min="50"
+                                        max="5000"
+                                        step="25"
+                                        value={form.monthly_budget}
+                                        onChange={(e) => setForm({ ...form, monthly_budget: parseFloat(e.target.value) || 200 })}
+                                        className="w-full px-4 py-3 pr-10 rounded-xl border border-slate-200 text-slate-800 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-merca/20 focus:border-merca transition-all"
+                                        id="monthly-budget-input"
+                                    />
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">€</span>
+                                </div>
+
+                                {/* Barra de gasto mensual */}
+                                {profile && (
+                                    <div className="bg-slate-50 rounded-xl p-4">
+                                        <div className="flex justify-between text-sm mb-2">
+                                            <span className="text-slate-500">Gastado este mes</span>
+                                            <span className="font-semibold text-slate-700">
+                                                {profile.month_spent.toFixed(2)}€ / {profile.monthly_budget.toFixed(0)}€
+                                            </span>
+                                        </div>
+                                        <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full budget-bar-fill ${
+                                                    budgetUsedPct > 80 ? 'bg-red-500' : budgetUsedPct > 50 ? 'bg-amber-500' : 'bg-merca'
+                                                }`}
+                                                style={{ width: `${budgetUsedPct}%` }}
+                                            ></div>
+                                        </div>
+                                        <p className="text-xs text-slate-400 mt-2">
+                                            Restante: <span className="font-semibold text-slate-600">{profile.monthly_remaining?.toFixed(2) || (profile.monthly_budget - profile.month_spent).toFixed(2)}€</span>
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Preferencias */}
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                    📝 Preferencias adicionales
+                                </label>
+                                <textarea
+                                    value={form.preferences}
+                                    onChange={(e) => setForm({ ...form, preferences: e.target.value })}
+                                    placeholder="Ej: Preferimos productos ecológicos, intentar variedad semanal..."
+                                    rows="3"
+                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-merca/20 focus:border-merca transition-all resize-none"
+                                    id="preferences-input"
+                                ></textarea>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="sticky bottom-0 bg-white rounded-b-3xl border-t border-slate-100 px-8 py-5">
+                            <button
+                                onClick={handleSave}
+                                disabled={saving}
+                                className="w-full bg-merca text-white font-bold text-lg px-8 py-4 rounded-xl hover:bg-[#007a30] transition-all transform active:scale-[0.98] shadow-md disabled:opacity-50"
+                                id="save-profile-btn"
+                            >
+                                {saving ? "Guardando..." : "Guardar perfil"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // ═══════════════════════════════════════════════════
+        //  PROFILE CHIP COMPONENT
+        // ═══════════════════════════════════════════════════
+
+        const ProfileChip = ({ profile, onClick }) => {
+            if (!profile || (!profile.name && profile.people === 2 && profile.allergens.length === 0)) {
+                return (
+                    <button
+                        onClick={onClick}
+                        className="profile-chip flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-slate-300 text-slate-400 text-sm font-medium hover:border-merca hover:text-merca cursor-pointer"
+                        id="setup-profile-btn"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                        Configurar perfil
+                    </button>
+                );
+            }
+
+            const parts = [];
+            if (profile.people > 1) parts.push(`👥 ${profile.people}`);
+            if (profile.allergens.length > 0) {
+                const allergenEmojis = profile.allergens.map(a => {
+                    const found = ALLERGEN_OPTIONS.find(o => o.value === a);
+                    return found ? found.emoji : "🚫";
+                }).join("");
+                parts.push(`🚫${allergenEmojis}`);
+            }
+            if (profile.per_cart_budget !== 25) parts.push(`${profile.per_cart_budget}€`);
+            if (profile.diet !== "equilibrado") parts.push(profile.diet);
+
+            return (
+                <button
+                    onClick={onClick}
+                    className="profile-chip flex items-center gap-2 px-4 py-2.5 rounded-xl bg-merca/5 border border-merca/20 text-merca text-sm font-semibold cursor-pointer"
+                    id="edit-profile-btn"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                    {profile.name || "Mi hogar"}
+                    {parts.length > 0 && (
+                        <span className="text-merca/70 font-medium">· {parts.join(" · ")}</span>
+                    )}
+                </button>
+            );
+        };
+
+
+        // ═══════════════════════════════════════════════════
+        //  MAIN APP
+        // ═══════════════════════════════════════════════════
 
         const App = () => {
             const [phase, setPhase] = useState(1);
             const [promptText, setPromptText] = useState("");
             const [error, setError] = useState(null);
             const [cartData, setCartData] = useState(null);
+            const [profile, setProfile] = useState(null);
+            const [profileOpen, setProfileOpen] = useState(false);
 
             // Estado para los mensajes de la "Consola de Inteligencia"
             const [steps, setSteps] = useState([
@@ -61,6 +445,14 @@
                 { id: 2, text: "Aplicando filtros de seguridad alimentaria (CSP)...", status: 'pending', detail: '' },
                 { id: 3, text: "Ajustes finales para mejorar la cesta...", status: 'pending', detail: '' }
             ]);
+
+            // Cargar perfil al montar
+            useEffect(() => {
+                fetch(`${API_BASE}/api/profile`)
+                    .then(res => res.json())
+                    .then(data => setProfile(data))
+                    .catch(err => console.warn("No se pudo cargar el perfil:", err));
+            }, []);
 
             const startOptimization = async () => {
                 if (!promptText.trim()) return;
@@ -105,6 +497,12 @@
                     // Mostrar la cesta después de animar
                     setTimeout(() => setPhase(3), 1200);
 
+                    // Recargar perfil (por si se actualizó el gasto)
+                    fetch(`${API_BASE}/api/profile`)
+                        .then(res => res.json())
+                        .then(data => setProfile(data))
+                        .catch(() => {});
+
                 } catch (err) {
                     console.error("Error:", err);
                     setError(err.message);
@@ -138,13 +536,23 @@
                                 <img src="assets/logo.png" alt="Mercadona" className="h-12 sm:h-14 lg:h-16 object-contain" />
                             </div>
 
-                            <nav className="hidden md:flex space-x-8">
+                            <nav className="hidden md:flex items-center space-x-6">
                                 <a href="#" className="font-semibold text-slate-800 hover:text-merca transition-colors text-lg">Catálogo</a>
                                 <a href="#" className="font-semibold text-slate-800 hover:text-merca transition-colors text-lg">Autopilot</a>
+                                <ProfileChip profile={profile} onClick={() => setProfileOpen(true)} />
                             </nav>
 
-                            <div className="flex items-center text-slate-800 font-semibold cursor-pointer">
-                                Español <svg className="w-5 h-5 inline-block ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                            {/* Mobile profile button */}
+                            <div className="md:hidden">
+                                <button
+                                    onClick={() => setProfileOpen(true)}
+                                    className="w-10 h-10 rounded-full bg-merca/10 flex items-center justify-center text-merca"
+                                    id="mobile-profile-btn"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                    </svg>
+                                </button>
                             </div>
                         </div>
                     </header>
@@ -154,14 +562,64 @@
                         {/* ================= ESTADO 1: INICIO ================= */}
                         {phase === 1 && (
                             <div className="max-w-4xl mx-auto w-full text-center">
-                                <h1 className="font-serif font-bold text-slate-900 tracking-tight text-5xl md:text-6xl lg:text-[72px] mb-12 leading-tight">
+                                <h1 className="font-serif font-bold text-slate-900 tracking-tight text-5xl md:text-6xl lg:text-[72px] mb-8 leading-tight">
                                     Empieza tu <span className="text-merca">compra inteligente</span>
                                 </h1>
+
+                                {/* Profile summary banner */}
+                                {profile && profile.name && (
+                                    <div className="mb-10 inline-flex items-center gap-3 text-sm bg-white border border-slate-200 rounded-2xl px-6 py-3 shadow-sm" id="profile-banner">
+                                        <span className="text-merca font-semibold">
+                                            {profile.name}
+                                        </span>
+                                        <span className="text-slate-300">|</span>
+                                        <span className="text-slate-500">
+                                            👥 {profile.people} pers.
+                                        </span>
+                                        {profile.allergens && profile.allergens.length > 0 && (
+                                            <>
+                                                <span className="text-slate-300">|</span>
+                                                <span className="text-red-500">
+                                                    🚫 {profile.allergens.join(", ")}
+                                                </span>
+                                            </>
+                                        )}
+                                        <span className="text-slate-300">|</span>
+                                        <span className="text-slate-500">
+                                            {profile.per_cart_budget}€/compra
+                                        </span>
+                                        {profile.monthly_budget > 0 && (
+                                            <>
+                                                <span className="text-slate-300">|</span>
+                                                <span className={`font-medium ${(profile.monthly_remaining || (profile.monthly_budget - profile.month_spent)) < 30 ? 'text-red-500' : 'text-merca'}`}>
+                                                    📅 {(profile.monthly_remaining || (profile.monthly_budget - profile.month_spent)).toFixed(0)}€ rest.
+                                                </span>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                                {profile && !profile.name && (
+                                    <div className="mb-10">
+                                        <button
+                                            onClick={() => setProfileOpen(true)}
+                                            className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-merca transition-colors"
+                                            id="setup-profile-hint"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
+                                            </svg>
+                                            Configura tu perfil para no repetir tus preferencias cada vez
+                                        </button>
+                                    </div>
+                                )}
 
                                 <div className="relative">
                                     <textarea
                                         className="w-full h-56 sm:h-72 p-8 text-xl sm:text-[22px] text-slate-800 bg-white rounded-3xl shadow-sm border border-slate-200 focus:outline-none focus:ring-4 focus:ring-merca/10 focus:border-merca resize-none placeholder-slate-400"
-                                        placeholder="Ej: Necesito ingredientes para una paella de 4 personas, presupuesto 15€, sin gluten..."
+                                        placeholder={profile && profile.name
+                                            ? `Ej: Ingredientes para una paella (${profile.people} pers, ${profile.per_cart_budget}€ ya configurados)...`
+                                            : "Ej: Necesito ingredientes para una paella de 4 personas, presupuesto 15€, sin gluten..."
+                                        }
                                         autoFocus
                                         value={promptText}
                                         onChange={(e) => setPromptText(e.target.value)}
@@ -174,6 +632,7 @@
                                         onClick={startOptimization}
                                         className="bg-merca text-white font-bold uppercase text-lg sm:text-xl px-12 py-5 rounded-2xl hover:bg-[#007a30] transition-all transform active:scale-95 shadow-md hover:shadow-lg disabled:opacity-50"
                                         disabled={!promptText.trim()}
+                                        id="generate-btn"
                                     >
                                         Hacer Carrito
                                     </button>
@@ -321,12 +780,12 @@
                                             </div>
                                         </div>
 
-                                        <button className="w-full bg-merca text-white font-bold uppercase text-lg px-8 py-5 rounded-xl hover:bg-[#007a30] transition-transform transform active:scale-95 shadow-md">
+                                        <button className="w-full bg-merca text-white font-bold uppercase text-lg px-8 py-5 rounded-xl hover:bg-[#007a30] transition-transform transform active:scale-95 shadow-md" id="confirm-cart-btn">
                                             CONFIRMAR CESTA
                                         </button>
                                         <p className="text-center text-slate-400 mt-4 text-sm font-medium">Transfiere tus datos de forma segura a Mercadona</p>
 
-                                        <button onClick={resetApp} className="w-full mt-4 text-slate-500 font-semibold text-sm hover:text-merca transition-colors py-2">
+                                        <button onClick={resetApp} className="w-full mt-4 text-slate-500 font-semibold text-sm hover:text-merca transition-colors py-2" id="new-cart-btn">
                                             ← Nueva compra
                                         </button>
                                     </div>
@@ -335,6 +794,14 @@
                         )}
 
                     </main>
+
+                    {/* ===== PROFILE MODAL ===== */}
+                    <ProfileModal
+                        isOpen={profileOpen}
+                        onClose={() => setProfileOpen(false)}
+                        profile={profile}
+                        onSave={(updated) => setProfile(updated)}
+                    />
                 </div>
             );
         };

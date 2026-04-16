@@ -44,10 +44,13 @@ def _get_conn() -> sqlite3.Connection:
 
 
 def init_db() -> None:
-    """Crea la tabla si no existe (no sobreescribe datos scrapeados)."""
+    """Crea las tablas si no existen (no sobreescribe datos existentes)."""
     conn = _get_conn()
     conn.executescript(_SCHEMA)
     conn.close()
+    # Inicializar tabla de perfil de usuario
+    from .user_profile import init_profile_table
+    init_profile_table()
 
 
 def get_all_products(queries: list[str] = None) -> list[dict]:

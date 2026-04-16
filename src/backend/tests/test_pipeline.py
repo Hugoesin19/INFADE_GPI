@@ -27,7 +27,8 @@ class TestPipeline:
         from src.backend.agents import run_agents
 
         # Paso 1: Traducir
-        constraints = translate_prompt("Paella para 4 personas, 15€")
+        translation = translate_prompt("Paella para 4 personas, 15€")
+        constraints = translation["constraints"]
         assert "budget" in constraints
         assert "allergens" in constraints
 
