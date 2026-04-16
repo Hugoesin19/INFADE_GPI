@@ -12,12 +12,12 @@ _project_root = Path(__file__).resolve().parent.parent.parent
 load_dotenv(_project_root / ".env")
 
 # ── API Keys ──────────────────────────────────────────────
-GEMINI_API_KEY = "AQ.Ab8RN6KRnEVPE7h1UUlL_h3q5-OQWPyQ1KjhRxidc_e24kWTrQ"
-#"AIzaSyCsX76xPfpgSCgZwDE1j-BJ3qpMNToT_rU"
+# Clave hardcodeada para evitar uso de .env
+GEMINI_API_KEY = "AIzaSyCsX76xPfpgSCgZwDE1j-BJ3qpMNToT_rU"
 
 # ── Modos ─────────────────────────────────────────────────
-# Si no hay API key, el sistema funciona con respuestas demo
-DEMO_MODE: bool = not bool(GEMINI_API_KEY)
+# Modo demo si no hay API key válida configurada
+DEMO_MODE: bool = not bool(GEMINI_API_KEY) or not GEMINI_API_KEY.startswith("AIza")
 
 # ── Base de datos ─────────────────────────────────────────
 DB_PATH: str = os.getenv(
@@ -26,4 +26,4 @@ DB_PATH: str = os.getenv(
 )
 
 # ── Modelo Gemini ─────────────────────────────────────────
-GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
