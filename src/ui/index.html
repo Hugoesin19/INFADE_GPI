@@ -481,7 +481,12 @@
                     });
 
                     if (!res.ok) {
-                        throw new Error(`Error del servidor: ${res.status}`);
+                        try {
+                            const errData = await res.json();
+                            throw new Error(errData.detail || `Error del servidor: ${res.status}`);
+                        } catch(e) {
+                            throw new Error(e.message || `Error del servidor: ${res.status}`);
+                        }
                     }
 
                     const data = await res.json();

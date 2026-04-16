@@ -210,6 +210,7 @@ def generate_cart(request: CartRequest):
     translation = translate_prompt(request.prompt)
     constraints = translation["constraints"]
     explicit_fields = translation["explicit"]
+    used_fallback = translation.get("used_fallback", False)
 
     # Fusionar perfil como defaults inteligentes
     constraints = _merge_profile_into_constraints(
@@ -259,6 +260,6 @@ def generate_cart(request: CartRequest):
         diet=result.diet,
         meal_type=result.meal_type,
         agent_logs=result.agent_logs,
-        demo_mode=DEMO_MODE,
+        demo_mode=used_fallback, # Propagamos el estado real al UI
         steps=steps,
     )

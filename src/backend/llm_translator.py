@@ -21,8 +21,8 @@ Devuelve ÚNICAMENTE un JSON válido con estos campos exactos (sin texto adicion
   "allergens": <lista de alérgenos a excluir. Posibles: "gluten", "lactosa", "huevo", "frutos_secos", "crustáceos", "pescado". Lista vacía si ninguno>,
   "diet": <descripción corta de la dieta/preferencia, string. Ej: "alta proteína", "vegetariano", "equilibrado". Si no se indica, usa "equilibrado">,
   "meal_type": <tipo de comida, string. Ej: "desayuno", "comida", "cena", "semanal", "general". Si no se indica, usa "general">,
-  "search_queries": <lista de palabras clave para buscar productos en la base de datos de Mercadona que sirvan para la comida solicitada. Ej: ["arroz", "carne", "verdura"] para una paella>,
-  "notes": <cualquier otro detalle relevante, string. Vacío si no hay>
+  "search_queries": <lista de ingredientes ESPECÍFICOS e individuales (singulares) para preparar la receta desde cero. DESGLOSA recetas complejas al máximo. Ej para 'arroz con costra': ["arroz redondo", "huevos", "salchicha", "carne", "ave", "tomate frito"]. NUNCA uses nombres de platos compuestos como query (ej. NO uses "arroz con costra" ni "paella")>,
+  "notes": <nombre de la receta o comida identificada para mostrarlo en los logs (ej: "arroz con costra")>
 }
 
 Responde SOLO con el JSON, sin markdown, sin explicaciones."""
@@ -56,6 +56,11 @@ _RECIPE_DB = [
         "names": {"arroz a banda", "arroz con marisco"},
         "meal_type": "comida",
         "ingredients": ["arroz redondo", "gambas", "caldo", "tomate", "aceite de oliva virgen", "azafrán", "ajo"],
+    },
+    {
+        "names": {"arroz con costra", "costra"},
+        "meal_type": "comida",
+        "ingredients": ["arroz redondo", "huevos", "salchichas", "carne picada", "tomate frito", "aceite de oliva", "sal"],
     },
     # ── Pastas ────────────────────────────────────────────
     {
@@ -222,7 +227,7 @@ def translate_prompt(user_text: str) -> dict[str, Any]:
     """
     print(f"DEBUG PROMPT: {user_text!r}")
     if DEMO_MODE:
-        return _fallback_translate(user_text)
+        return {"constraints": _fallback_translate(user_text), "explicit": [], "used_fallback": True}
 
     try:
         from google import genai
@@ -249,13 +254,11 @@ def translate_prompt(user_text: str) -> dict[str, Any]:
 
         # Detectar qué campos se extrajeron explícitamente vs defaults del LLM
         explicit = _detect_explicit_fields(user_text, result)
-        return {"constraints": result, "explicit": explicit}
+        return {"constraints": result, "explicit": explicit, "used_fallback": False}
 
     except Exception as e:
-        # Si la API key es inválida o nos pasamos de la cuota (429), fallback
-        print(f"[LLM] Error al llamar a Gemini, usando modo demo: {e}")
-        return _fallback_translate(user_text)
-
+        print(f"[LLM] Error genérico al llamar a Gemini, usando modo demo: {e}")
+        return {"constraints": _fallback_translate(user_text), "explicit": [], "used_fallback": True}
 
 def _detect_explicit_fields(user_text: str, constraints: dict) -> list[str]:
     """
