@@ -1,91 +1,22 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mercadona Autopilot Premium</title>
-    <meta name="description" content="Genera tu cesta de la compra inteligente con IA. Preferencias, alergias y presupuesto personalizados.">
-
-    <!-- Fuentes Premium: Baskerville para Serif pesado, Inter para limpieza -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@700&family=Inter:wght@400;500;600;700&display=swap"
-        rel="stylesheet">
-
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        merca: '#008f39',
-                        accent: '#ff7d00',
-                        crema: '#f9f8f4'
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        serif: ['Libre Baskerville', 'serif'],
-                    }
-                }
-            }
-        }
-    </script>
-
-    <style>
-        /* Modal backdrop animation */
-        .modal-backdrop {
-            animation: fadeIn 0.2s ease-out;
-        }
-        .modal-panel {
-            animation: slideUp 0.3s ease-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        /* Budget bar animation */
-        .budget-bar-fill {
-            transition: width 0.8s ease-out;
-        }
-        /* Profile chip hover */
-        .profile-chip {
-            transition: all 0.2s ease;
-        }
-        .profile-chip:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0,143,57,0.15);
-        }
-        /* Allergen checkbox custom */
-        .allergen-check:checked {
-            background-color: #008f39;
-            border-color: #008f39;
-        }
-    </style>
-
-    <!-- React & ReactDOM (CDN) -->
+    <title>Mercadona Autopilot — Mercadín 🦔</title>
+    <meta name="description" content="Mercadín, tu asistente de compras inteligente de Mercadona. Chat conversacional con carrito en vivo.">
+    <link rel="stylesheet" href="style.css">
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel (CDN) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-
-<body class="bg-crema font-sans text-slate-700 antialiased">
-
+<body>
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useRef, useCallback } = React;
-
         const API_BASE = "http://localhost:8000";
 
-        // ── Allergen options ──────────────────────────────
         const ALLERGEN_OPTIONS = [
             { value: "gluten", label: "Gluten", emoji: "🌾" },
             { value: "lactosa", label: "Lactosa", emoji: "🥛" },
@@ -93,9 +24,7 @@
             { value: "frutos_secos", label: "Frutos secos", emoji: "🥜" },
             { value: "crustáceos", label: "Crustáceos", emoji: "🦐" },
             { value: "pescado", label: "Pescado", emoji: "🐟" },
-            { value: "soja", label: "Soja", emoji: "🫘" },
         ];
-
         const DIET_OPTIONS = [
             { value: "equilibrado", label: "Equilibrado" },
             { value: "vegetariano", label: "Vegetariano" },
@@ -104,763 +33,430 @@
             { value: "bajo en grasas", label: "Bajo en grasas" },
         ];
 
-        // ═══════════════════════════════════════════════════
-        //  PROFILE MODAL COMPONENT
-        // ═══════════════════════════════════════════════════
+        function getCategoryEmoji(cat) {
+            const m = { carne:'🥩', 'marisco y pescado':'🐟', pescado:'🐟', 'fruta y verdura':'🥬',
+                'huevos, leche y mantequilla':'🥛', 'arroz, legumbres y pasta':'🍚',
+                'aceite, especias y salsas':'🫒', 'panadería y pastelería':'🍞',
+                'conservas, caldos y cremas':'🥫', 'postres y yogures':'🍨',
+                'cereales y galletas':'🥣', congelados:'🧊', 'charcutería y quesos':'🧀',
+                'cacao, café e infusiones':'☕', 'agua y refrescos':'🥤', zumos:'🧃',
+                bodega:'🍷', aperitivos:'🥜', 'azúcar, caramelos y chocolate':'🍫',
+                'pizzas y platos preparados':'🍕', bebé:'👶' };
+            return m[(cat||'').toLowerCase()] || '🛒';
+        }
 
+        function formatMessage(text) {
+            if (!text) return '';
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br/>');
+        }
+
+        // ═══════════════════════════════════════════════
+        //  PROFILE MODAL
+        // ═══════════════════════════════════════════════
         const ProfileModal = ({ isOpen, onClose, profile, onSave }) => {
-            const [form, setForm] = useState({
-                name: "",
-                people: 2,
-                allergens: [],
-                diet: "equilibrado",
-                monthly_budget: 200,
-                per_cart_budget: 25,
-                preferences: "",
-            });
+            const [form, setForm] = useState({ name:'', people:2, allergens:[], diet:'equilibrado', monthly_budget:200, per_cart_budget:25, preferences:'' });
             const [saving, setSaving] = useState(false);
 
             useEffect(() => {
-                if (profile) {
-                    setForm({
-                        name: profile.name || "",
-                        people: profile.people || 2,
-                        allergens: profile.allergens || [],
-                        diet: profile.diet || "equilibrado",
-                        monthly_budget: profile.monthly_budget || 200,
-                        per_cart_budget: profile.per_cart_budget || 25,
-                        preferences: profile.preferences || "",
-                    });
-                }
+                if (profile && isOpen) setForm({
+                    name: profile.name||'', people: profile.people||2,
+                    allergens: profile.allergens||[], diet: profile.diet||'equilibrado',
+                    monthly_budget: profile.monthly_budget||200, per_cart_budget: profile.per_cart_budget||25,
+                    preferences: profile.preferences||'',
+                });
             }, [profile, isOpen]);
-
-            const handleAllergenToggle = (allergen) => {
-                setForm(prev => ({
-                    ...prev,
-                    allergens: prev.allergens.includes(allergen)
-                        ? prev.allergens.filter(a => a !== allergen)
-                        : [...prev.allergens, allergen]
-                }));
-            };
 
             const handleSave = async () => {
                 setSaving(true);
                 try {
                     const res = await fetch(`${API_BASE}/api/profile`, {
-                        method: "PUT",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(form),
+                        method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(form)
                     });
-                    if (res.ok) {
-                        const updated = await res.json();
-                        onSave(updated);
-                        onClose();
-                    }
-                } catch (err) {
-                    console.error("Error saving profile:", err);
-                } finally {
-                    setSaving(false);
-                }
+                    if (res.ok) { const d = await res.json(); onSave(d); onClose(); }
+                } catch(e) { console.error(e); }
+                finally { setSaving(false); }
             };
 
             if (!isOpen) return null;
-
-            const budgetUsedPct = profile
-                ? Math.min(100, (profile.month_spent / Math.max(profile.monthly_budget, 1)) * 100)
-                : 0;
-
             return (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center" id="profile-modal">
-                    {/* Backdrop */}
-                    <div
-                        className="absolute inset-0 bg-black/30 backdrop-blur-sm modal-backdrop"
-                        onClick={onClose}
-                    ></div>
-
-                    {/* Panel */}
-                    <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto modal-panel">
-                        {/* Header */}
-                        <div className="sticky top-0 bg-white rounded-t-3xl border-b border-slate-100 px-8 py-6 flex items-center justify-between z-10">
-                            <div>
-                                <h2 className="font-serif font-bold text-slate-900 text-2xl">Mi Perfil</h2>
-                                <p className="text-slate-400 text-sm mt-1">Personaliza tu experiencia de compra</p>
-                            </div>
-                            <button
-                                onClick={onClose}
-                                className="w-10 h-10 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center transition-colors"
-                                id="close-profile-btn"
-                            >
-                                <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                                </svg>
-                            </button>
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal-panel" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <div><h2>Mi Perfil</h2><p>Personaliza tu experiencia</p></div>
+                            <button className="modal-close" onClick={onClose}>✕</button>
                         </div>
-
-                        <div className="px-8 py-6 space-y-7">
-                            {/* Nombre del hogar */}
+                        <div className="modal-body">
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                    🏠 Nombre del hogar
-                                </label>
-                                <input
-                                    type="text"
-                                    value={form.name}
-                                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                                    placeholder="Ej: Familia Aguilar"
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-merca/20 focus:border-merca transition-all"
-                                    id="profile-name-input"
-                                />
+                                <label className="form-label">🏠 Nombre del hogar</label>
+                                <input className="form-input" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Ej: Familia García"/>
                             </div>
-
-                            {/* Personas */}
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                    👥 Número de personas
-                                </label>
-                                <div className="flex items-center gap-4">
-                                    <button
-                                        onClick={() => setForm({ ...form, people: Math.max(1, form.people - 1) })}
-                                        className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-xl font-bold text-slate-600 transition-all active:scale-95"
-                                    >−</button>
-                                    <span className="text-3xl font-bold text-slate-900 w-12 text-center" id="people-count">{form.people}</span>
-                                    <button
-                                        onClick={() => setForm({ ...form, people: Math.min(20, form.people + 1) })}
-                                        className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-xl font-bold text-slate-600 transition-all active:scale-95"
-                                    >+</button>
+                                <label className="form-label">👥 Personas</label>
+                                <div className="people-counter">
+                                    <button className="people-btn" onClick={()=>setForm({...form,people:Math.max(1,form.people-1)})}>−</button>
+                                    <span className="people-count">{form.people}</span>
+                                    <button className="people-btn" onClick={()=>setForm({...form,people:Math.min(20,form.people+1)})}>+</button>
                                 </div>
                             </div>
-
-                            {/* Alergias */}
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-3">
-                                    🚫 Alergias e intolerancias
-                                </label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {ALLERGEN_OPTIONS.map(opt => (
-                                        <button
-                                            key={opt.value}
-                                            onClick={() => handleAllergenToggle(opt.value)}
-                                            className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm font-medium transition-all active:scale-[0.98] ${
-                                                form.allergens.includes(opt.value)
-                                                    ? 'bg-red-50 border-red-200 text-red-700'
-                                                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                                            }`}
-                                            id={`allergen-${opt.value}`}
-                                        >
-                                            <span className="text-lg">{opt.emoji}</span>
-                                            <span>{opt.label}</span>
-                                            {form.allergens.includes(opt.value) && (
-                                                <svg className="w-4 h-4 ml-auto text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                                </svg>
-                                            )}
+                                <label className="form-label">🚫 Alergias</label>
+                                <div className="allergen-grid">
+                                    {ALLERGEN_OPTIONS.map(o => (
+                                        <button key={o.value} className={`allergen-btn ${form.allergens.includes(o.value)?'active':''}`}
+                                            onClick={()=>setForm({...form, allergens: form.allergens.includes(o.value) ? form.allergens.filter(a=>a!==o.value) : [...form.allergens,o.value]})}>
+                                            <span>{o.emoji}</span>{o.label}
                                         </button>
                                     ))}
                                 </div>
                             </div>
-
-                            {/* Dieta */}
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                    🥗 Dieta preferida
-                                </label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {DIET_OPTIONS.map(opt => (
-                                        <button
-                                            key={opt.value}
-                                            onClick={() => setForm({ ...form, diet: opt.value })}
-                                            className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all active:scale-[0.98] ${
-                                                form.diet === opt.value
-                                                    ? 'bg-merca/10 border-merca/30 text-merca'
-                                                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                                            }`}
-                                            id={`diet-${opt.value}`}
-                                        >
-                                            {opt.label}
-                                        </button>
+                                <label className="form-label">🥗 Dieta</label>
+                                <div className="diet-grid">
+                                    {DIET_OPTIONS.map(o => (
+                                        <button key={o.value} className={`diet-btn ${form.diet===o.value?'active':''}`}
+                                            onClick={()=>setForm({...form,diet:o.value})}>{o.label}</button>
                                     ))}
                                 </div>
                             </div>
-
-                            {/* Presupuesto por compra */}
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                    💰 Presupuesto por compra
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type="number"
-                                        min="5"
-                                        max="500"
-                                        step="5"
-                                        value={form.per_cart_budget}
-                                        onChange={(e) => setForm({ ...form, per_cart_budget: parseFloat(e.target.value) || 25 })}
-                                        className="w-full px-4 py-3 pr-10 rounded-xl border border-slate-200 text-slate-800 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-merca/20 focus:border-merca transition-all"
-                                        id="cart-budget-input"
-                                    />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">€</span>
-                                </div>
+                                <label className="form-label">💰 Presupuesto por compra (€)</label>
+                                <input className="form-input" type="number" min="5" max="500" step="5" value={form.per_cart_budget}
+                                    onChange={e=>setForm({...form,per_cart_budget:parseFloat(e.target.value)||25})}/>
                             </div>
-
-                            {/* Presupuesto mensual */}
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                    📅 Presupuesto mensual
-                                </label>
-                                <div className="relative mb-3">
-                                    <input
-                                        type="number"
-                                        min="50"
-                                        max="5000"
-                                        step="25"
-                                        value={form.monthly_budget}
-                                        onChange={(e) => setForm({ ...form, monthly_budget: parseFloat(e.target.value) || 200 })}
-                                        className="w-full px-4 py-3 pr-10 rounded-xl border border-slate-200 text-slate-800 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-merca/20 focus:border-merca transition-all"
-                                        id="monthly-budget-input"
-                                    />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">€</span>
-                                </div>
-
-                                {/* Barra de gasto mensual */}
-                                {profile && (
-                                    <div className="bg-slate-50 rounded-xl p-4">
-                                        <div className="flex justify-between text-sm mb-2">
-                                            <span className="text-slate-500">Gastado este mes</span>
-                                            <span className="font-semibold text-slate-700">
-                                                {profile.month_spent.toFixed(2)}€ / {profile.monthly_budget.toFixed(0)}€
-                                            </span>
-                                        </div>
-                                        <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
-                                            <div
-                                                className={`h-full rounded-full budget-bar-fill ${
-                                                    budgetUsedPct > 80 ? 'bg-red-500' : budgetUsedPct > 50 ? 'bg-amber-500' : 'bg-merca'
-                                                }`}
-                                                style={{ width: `${budgetUsedPct}%` }}
-                                            ></div>
-                                        </div>
-                                        <p className="text-xs text-slate-400 mt-2">
-                                            Restante: <span className="font-semibold text-slate-600">{profile.monthly_remaining?.toFixed(2) || (profile.monthly_budget - profile.month_spent).toFixed(2)}€</span>
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Preferencias */}
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                    📝 Preferencias adicionales
-                                </label>
-                                <textarea
-                                    value={form.preferences}
-                                    onChange={(e) => setForm({ ...form, preferences: e.target.value })}
-                                    placeholder="Ej: Preferimos productos ecológicos, intentar variedad semanal..."
-                                    rows="3"
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-merca/20 focus:border-merca transition-all resize-none"
-                                    id="preferences-input"
-                                ></textarea>
+                                <label className="form-label">📅 Presupuesto mensual (€)</label>
+                                <input className="form-input" type="number" min="50" max="5000" step="25" value={form.monthly_budget}
+                                    onChange={e=>setForm({...form,monthly_budget:parseFloat(e.target.value)||200})}/>
                             </div>
                         </div>
-
-                        {/* Footer */}
-                        <div className="sticky bottom-0 bg-white rounded-b-3xl border-t border-slate-100 px-8 py-5">
-                            <button
-                                onClick={handleSave}
-                                disabled={saving}
-                                className="w-full bg-merca text-white font-bold text-lg px-8 py-4 rounded-xl hover:bg-[#007a30] transition-all transform active:scale-[0.98] shadow-md disabled:opacity-50"
-                                id="save-profile-btn"
-                            >
-                                {saving ? "Guardando..." : "Guardar perfil"}
-                            </button>
+                        <div className="modal-footer">
+                            <button className="save-btn" onClick={handleSave} disabled={saving}>{saving?'Guardando...':'Guardar perfil'}</button>
                         </div>
                     </div>
                 </div>
             );
         };
 
-        // ═══════════════════════════════════════════════════
-        //  PROFILE CHIP COMPONENT
-        // ═══════════════════════════════════════════════════
+        // ═══════════════════════════════════════════════
+        //  LIVE CART COMPONENT
+        // ═══════════════════════════════════════════════
+        const LiveCart = ({ cart, total, budget, confirmed, onConfirm, agentLogs, highlightIds }) => {
+            const [logsOpen, setLogsOpen] = useState(false);
+            const pct = budget > 0 ? Math.min(100, (total/budget)*100) : 0;
+            const barClass = pct > 90 ? 'over' : pct > 60 ? 'warn' : 'ok';
 
-        const ProfileChip = ({ profile, onClick, health }) => {
-            const isAI = health && !health.demo_mode;
-            
             return (
-                <div className="flex items-center gap-3">
-                    {/* Indicador de Estado IA */}
-                    <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${
-                        isAI ? 'bg-merca/10 text-merca border border-merca/20' : 'bg-amber-100 text-amber-700 border border-amber-200'
-                    }`}>
-                        <span className={`w-2 h-2 rounded-full ${isAI ? 'bg-merca animate-pulse' : 'bg-amber-500'}`}></span>
-                        {isAI ? 'IA Conectada' : 'Modo Simulado'}
+                <div className="cart-panel">
+                    <div className="cart-header">
+                        <h2>🛒 Carrito en Vivo {cart.length > 0 && <span className="cart-count">{cart.length}</span>}</h2>
+                    </div>
+                    <div className="cart-items">
+                        {cart.length === 0 ? (
+                            <div className="cart-empty">
+                                <div className="cart-empty-icon">🛒</div>
+                                <p>Tu carrito está vacío.<br/>Habla con Mercadín para llenarlo.</p>
+                            </div>
+                        ) : cart.map(p => (
+                            <div key={p.id} className={`cart-item ${highlightIds.includes(p.id)?'entering highlight':''}`}>
+                                <div className="cart-item-emoji">{getCategoryEmoji(p.category)}</div>
+                                <div className="cart-item-info">
+                                    <div className="cart-item-name" title={p.name}>{p.name}</div>
+                                    <div className="cart-item-brand">{p.brand}</div>
+                                </div>
+                                <div className="cart-item-price">{p.price.toFixed(2)}€</div>
+                            </div>
+                        ))}
                     </div>
 
-                    {(!profile || (!profile.name && profile.people === 2 && profile.allergens.length === 0)) ? (
-                        <button
-                            onClick={onClick}
-                            className="profile-chip flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-slate-300 text-slate-400 text-sm font-medium hover:border-merca hover:text-merca cursor-pointer"
-                            id="setup-profile-btn"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                            </svg>
-                            Configurar perfil
-                        </button>
-                    ) : (
-                        <button
-                            onClick={onClick}
-                            className="profile-chip flex items-center gap-2 px-4 py-2.5 rounded-xl bg-merca/5 border border-merca/20 text-merca text-sm font-semibold cursor-pointer"
-                            id="edit-profile-btn"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                            </svg>
-                            {profile.name || "Mi hogar"}
-                        </button>
+                    {agentLogs && agentLogs.length > 0 && (
+                        <div className="agent-logs">
+                            <button className="agent-logs-toggle" onClick={()=>setLogsOpen(!logsOpen)}>
+                                {logsOpen ? '▼' : '▶'} Decisiones de agentes ({agentLogs.length})
+                            </button>
+                            {logsOpen && <div className="agent-logs-content">{agentLogs.map((l,i)=><div key={i}>{l}</div>)}</div>}
+                        </div>
+                    )}
+
+                    {cart.length > 0 && (
+                        <div className="cart-summary">
+                            <div className="cart-total-row">
+                                <span className="cart-total-label">Total</span>
+                                <span className="cart-total-amount">{total.toFixed(2)}€</span>
+                            </div>
+                            <div className="budget-bar"><div className={`budget-bar-fill ${barClass}`} style={{width:`${pct}%`}}></div></div>
+                            <div className="budget-text">{total.toFixed(2)}€ de {budget.toFixed(0)}€ presupuesto · Ahorro: {Math.max(0,budget-total).toFixed(2)}€</div>
+                            <button className={`confirm-btn ${confirmed?'confirmed':''}`}
+                                onClick={onConfirm} disabled={cart.length===0||confirmed}>
+                                {confirmed ? '✓ Compra Confirmada' : 'Confirmar Compra'}
+                            </button>
+                        </div>
                     )}
                 </div>
             );
         };
 
-
-        // ═══════════════════════════════════════════════════
+        // ═══════════════════════════════════════════════
         //  MAIN APP
-        // ═══════════════════════════════════════════════════
-
+        // ═══════════════════════════════════════════════
         const App = () => {
-            const [phase, setPhase] = useState(1);
-            const [promptText, setPromptText] = useState("");
-            const [error, setError] = useState(null);
-            const [cartData, setCartData] = useState(null);
+            const [messages, setMessages] = useState([]);
+            const [cart, setCart] = useState([]);
+            const [cartTotal, setCartTotal] = useState(0);
+            const [budget, setBudget] = useState(25);
+            const [sessionId, setSessionId] = useState(null);
+            const [isTyping, setIsTyping] = useState(false);
+            const [confirmed, setConfirmed] = useState(false);
+            const [inputText, setInputText] = useState('');
             const [profile, setProfile] = useState(null);
-            const [health, setHealth] = useState(null);
             const [profileOpen, setProfileOpen] = useState(false);
+            const [suggestions, setSuggestions] = useState([]);
+            const [demoMode, setDemoMode] = useState(true);
+            const [agentLogs, setAgentLogs] = useState([]);
+            const [highlightIds, setHighlightIds] = useState([]);
+            const [mobileCartOpen, setMobileCartOpen] = useState(false);
+            const [connectionError, setConnectionError] = useState(false);
 
-            // Estado para los mensajes de la "Consola de Inteligencia"
-            const [steps, setSteps] = useState([
-                { id: 1, text: "Analizando necesidades del cliente...", status: 'pending', detail: '' },
-                { id: 2, text: "Aplicando filtros de seguridad alimentaria (CSP)...", status: 'pending', detail: '' },
-                { id: 3, text: "Ajustes finales para mejorar la cesta...", status: 'pending', detail: '' }
-            ]);
+            const messagesEndRef = useRef(null);
+            const inputRef = useRef(null);
 
-            // Cargar perfil al montar
+            const scrollToBottom = () => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            };
+            useEffect(scrollToBottom, [messages, isTyping]);
+
+            // ── Init: load profile + start chat ─────
             useEffect(() => {
-                fetch(`${API_BASE}/api/profile`)
-                    .then(res => res.json())
-                    .then(data => setProfile(data))
-                    .catch(err => console.warn("No se pudo cargar el perfil:", err));
-                
-                // Cargar estado de salud de la API
-                fetch(`${API_BASE}/api/health`)
-                    .then(res => res.json())
-                    .then(data => setHealth(data))
-                    .catch(err => console.warn("No se pudo cargar el estado de la API:", err));
+                const init = async () => {
+                    try {
+                        // Load profile
+                        const pRes = await fetch(`${API_BASE}/api/profile`);
+                        if (pRes.ok) setProfile(await pRes.json());
+
+                        // Start chat session
+                        const cRes = await fetch(`${API_BASE}/api/chat/start`, { method: 'POST' });
+                        if (cRes.ok) {
+                            const data = await cRes.json();
+                            setSessionId(data.session_id);
+                            setDemoMode(data.demo_mode);
+                            setBudget(data.profile_summary.per_cart_budget || 25);
+                            setMessages([{ role:'assistant', content: data.greeting }]);
+                            setSuggestions(data.suggestions || []);
+                        }
+                        setConnectionError(false);
+                    } catch(e) {
+                        console.error('Init error:', e);
+                        setConnectionError(true);
+                        setMessages([{
+                            role: 'assistant',
+                            content: '🦔 ¡Ups! No puedo conectar con el servidor. Asegúrate de que esté corriendo:\n\n`python -m uvicorn src.backend.main:app --port 8000`'
+                        }]);
+                    }
+                };
+                init();
             }, []);
 
-            const startOptimization = async () => {
-                if (!promptText.trim()) return;
+            // ── Send message ────────────────────────
+            const sendMessage = async (text) => {
+                if (!text.trim() || !sessionId || confirmed) return;
 
-                setPhase(2);
-                setError(null);
-
-                // Animar los pasos progresivamente mientras el API responde
-                const animateStep = (index, delay) => {
-                    setTimeout(() => {
-                        setSteps(prev => prev.map((s, i) =>
-                            i === index ? { ...s, status: 'loading' } : s
-                        ));
-                    }, delay);
-                };
-
-                animateStep(0, 300);
-                animateStep(1, 1500);
-                animateStep(2, 3000);
+                const userMsg = text.trim();
+                setInputText('');
+                setMessages(prev => [...prev, { role:'user', content: userMsg }]);
+                setSuggestions([]);
+                setIsTyping(true);
 
                 try {
-                    const res = await fetch(`${API_BASE}/api/generate-cart`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ prompt: promptText }),
+                    const res = await fetch(`${API_BASE}/api/chat/message`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ session_id: sessionId, message: userMsg }),
                     });
 
-                    if (!res.ok) {
-                        try {
-                            const errData = await res.json();
-                            throw new Error(errData.detail || `Error del servidor: ${res.status}`);
-                        } catch(e) {
-                            throw new Error(e.message || `Error del servidor: ${res.status}`);
+                    if (!res.ok) throw new Error(`Error ${res.status}`);
+                    const data = await res.json();
+
+                    setIsTyping(false);
+                    setMessages(prev => [...prev, { role:'assistant', content: data.mercadin_message }]);
+
+                    // Update cart
+                    if (data.current_cart) {
+                        setCart(data.current_cart);
+                        setCartTotal(data.total);
+                        setBudget(data.budget);
+
+                        // Highlight new products
+                        if (data.cart_delta && data.cart_delta.added.length > 0) {
+                            const newIds = data.cart_delta.added.map(p => p.id);
+                            setHighlightIds(newIds);
+                            setTimeout(() => setHighlightIds([]), 2000);
                         }
                     }
 
-                    const data = await res.json();
-                    setCartData(data);
+                    if (data.agent_logs && data.agent_logs.length > 0) {
+                        setAgentLogs(data.agent_logs);
+                    }
 
-                    // Marcar todos los pasos como completados con detalles del backend
-                    setSteps(prev => prev.map((s, i) => ({
-                        ...s,
-                        status: 'completed',
-                        detail: data.steps?.[i]?.detail || '',
-                    })));
+                    // Handle confirmation
+                    if (data.confirmed) {
+                        handleConfirm();
+                    }
 
-                    // Mostrar la cesta después de animar
-                    setTimeout(() => setPhase(3), 1200);
-
-                    // Recargar perfil (por si se actualizó el gasto)
-                    fetch(`${API_BASE}/api/profile`)
-                        .then(res => res.json())
-                        .then(data => setProfile(data))
-                        .catch(() => {});
-
-                } catch (err) {
-                    console.error("Error:", err);
-                    setError(err.message);
-                    // Mantener en fase 2 con mensaje de error
-                    setSteps(prev => prev.map(s => ({
-                        ...s,
-                        status: s.status === 'loading' ? 'error' : s.status,
-                    })));
+                } catch(e) {
+                    setIsTyping(false);
+                    setMessages(prev => [...prev, {
+                        role:'assistant',
+                        content: '🦔 Perdona, ha habido un error de conexión. ¿Puedes intentarlo de nuevo?'
+                    }]);
                 }
             };
 
-            const resetApp = () => {
-                setPhase(1);
-                setPromptText("");
-                setCartData(null);
-                setError(null);
-                setSteps([
-                    { id: 1, text: "Analizando necesidades del cliente...", status: 'pending', detail: '' },
-                    { id: 2, text: "Aplicando filtros de seguridad alimentaria (CSP)...", status: 'pending', detail: '' },
-                    { id: 3, text: "Ajustes finales para mejorar la cesta...", status: 'pending', detail: '' }
-                ]);
+            // ── Confirm purchase ────────────────────
+            const handleConfirm = async () => {
+                if (!sessionId || confirmed) return;
+                try {
+                    const res = await fetch(`${API_BASE}/api/chat/confirm`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ session_id: sessionId }),
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setConfirmed(true);
+                        setMessages(prev => [...prev, { role:'assistant', content: data.message }]);
+                        // Refresh profile
+                        const pRes = await fetch(`${API_BASE}/api/profile`);
+                        if (pRes.ok) setProfile(await pRes.json());
+                    }
+                } catch(e) { console.error(e); }
+            };
+
+            // ── New session ─────────────────────────
+            const resetSession = async () => {
+                setMessages([]); setCart([]); setCartTotal(0); setConfirmed(false);
+                setAgentLogs([]); setSuggestions([]); setHighlightIds([]);
+                setIsTyping(true);
+                try {
+                    const res = await fetch(`${API_BASE}/api/chat/start`, { method: 'POST' });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setSessionId(data.session_id);
+                        setBudget(data.profile_summary.per_cart_budget || 25);
+                        setMessages([{ role:'assistant', content: data.greeting }]);
+                        setSuggestions(data.suggestions || []);
+                    }
+                } catch(e) { console.error(e); }
+                setIsTyping(false);
+            };
+
+            const handleKeyDown = (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage(inputText);
+                }
             };
 
             return (
-                <div className="min-h-screen flex flex-col">
-
-                    {/* ===== HEADER ===== */}
-                    <header className="bg-white shadow-sm border-b border-slate-100 sticky top-0 z-50">
-                        <div className="max-w-6xl mx-auto px-6 lg:px-8 py-5 flex items-center justify-between">
-                            <div className="flex-shrink-0 cursor-pointer" onClick={resetApp}>
-                                <img src="assets/logo.png" alt="Mercadona" className="h-12 sm:h-14 lg:h-16 object-contain" />
+                <div className="app-container">
+                    {/* ═══ HEADER ═══ */}
+                    <header className="app-header">
+                        <img src="assets/logo.png" alt="Mercadona" className="logo" onClick={resetSession} title="Nueva conversación"/>
+                        <div className="header-right">
+                            <div className={`ia-badge ${demoMode ? 'demo' : 'connected'}`}>
+                                <span className="dot"></span>
+                                {demoMode ? 'Modo Demo' : 'Mercadín IA'}
                             </div>
-
-                            <nav className="hidden md:flex items-center space-x-6">
-                                <a href="#" className="font-semibold text-slate-800 hover:text-merca transition-colors text-lg">Catálogo</a>
-                                <a href="#" className="font-semibold text-slate-800 hover:text-merca transition-colors text-lg">Autopilot</a>
-                                <ProfileChip profile={profile} onClick={() => setProfileOpen(true)} health={health} />
-                            </nav>
-
-                            {/* Mobile profile button */}
-                            <div className="md:hidden">
-                                <button
-                                    onClick={() => setProfileOpen(true)}
-                                    className="w-10 h-10 rounded-full bg-merca/10 flex items-center justify-center text-merca"
-                                    id="mobile-profile-btn"
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                    </svg>
-                                </button>
-                            </div>
+                            <button className="profile-btn" onClick={() => setProfileOpen(true)}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                </svg>
+                                {profile?.name || 'Mi perfil'}
+                            </button>
                         </div>
                     </header>
 
-                    <main className="flex-1 max-w-6xl mx-auto px-6 lg:px-8 w-full py-16 lg:py-24 flex flex-col justify-center relative">
-
-                        {/* ================= ESTADO 1: INICIO ================= */}
-                        {phase === 1 && (
-                            <div className="max-w-4xl mx-auto w-full text-center">
-                                <h1 className="font-serif font-bold text-slate-900 tracking-tight text-5xl md:text-6xl lg:text-[72px] mb-8 leading-tight">
-                                    Empieza tu <span className="text-merca">compra inteligente</span>
-                                </h1>
-
-                                {/* Profile summary banner */}
-                                {profile && profile.name && (
-                                    <div className="mb-10 inline-flex items-center gap-3 text-sm bg-white border border-slate-200 rounded-2xl px-6 py-3 shadow-sm" id="profile-banner">
-                                        <span className="text-merca font-semibold">
-                                            {profile.name}
-                                        </span>
-                                        <span className="text-slate-300">|</span>
-                                        <span className="text-slate-500">
-                                            👥 {profile.people} pers.
-                                        </span>
-                                        {profile.allergens && profile.allergens.length > 0 && (
-                                            <>
-                                                <span className="text-slate-300">|</span>
-                                                <span className="text-red-500">
-                                                    🚫 {profile.allergens.join(", ")}
-                                                </span>
-                                            </>
-                                        )}
-                                        <span className="text-slate-300">|</span>
-                                        <span className="text-slate-500">
-                                            {profile.per_cart_budget}€/compra
-                                        </span>
-                                        {profile.monthly_budget > 0 && (
-                                            <>
-                                                <span className="text-slate-300">|</span>
-                                                <span className={`font-medium ${(profile.monthly_remaining || (profile.monthly_budget - profile.month_spent)) < 30 ? 'text-red-500' : 'text-merca'}`}>
-                                                    📅 {(profile.monthly_remaining || (profile.monthly_budget - profile.month_spent)).toFixed(0)}€ rest.
-                                                </span>
-                                            </>
-                                        )}
+                    {/* ═══ MAIN SPLIT ═══ */}
+                    <div className="main-content">
+                        {/* ─── CHAT PANEL ─── */}
+                        <div className="chat-panel">
+                            <div className="chat-messages">
+                                {messages.map((msg, i) => (
+                                    <div key={i} className={`message ${msg.role}`}>
+                                        <div className="message-avatar">
+                                            {msg.role === 'assistant' ? '🦔' : '👤'}
+                                        </div>
+                                        <div className="message-content"
+                                            dangerouslySetInnerHTML={{ __html: formatMessage(msg.content) }}/>
+                                    </div>
+                                ))}
+                                {isTyping && (
+                                    <div className="typing-indicator">
+                                        <div className="message-avatar" style={{background:'var(--merca-light)'}}>🦔</div>
+                                        <div className="typing-dots">
+                                            <span></span><span></span><span></span>
+                                        </div>
                                     </div>
                                 )}
-                                {profile && !profile.name && (
-                                    <div className="mb-10">
-                                        <button
-                                            onClick={() => setProfileOpen(true)}
-                                            className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-merca transition-colors"
-                                            id="setup-profile-hint"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
-                                            </svg>
-                                            Configura tu perfil para no repetir tus preferencias cada vez
-                                        </button>
-                                    </div>
-                                )}
+                                <div ref={messagesEndRef}/>
+                            </div>
 
-                                <div className="relative">
-                                    <textarea
-                                        className="w-full h-56 sm:h-72 p-8 text-xl sm:text-[22px] text-slate-800 bg-white rounded-3xl shadow-sm border border-slate-200 focus:outline-none focus:ring-4 focus:ring-merca/10 focus:border-merca resize-none placeholder-slate-400"
-                                        placeholder={profile && profile.name
-                                            ? `Ej: Ingredientes para una paella (${profile.people} pers, ${profile.per_cart_budget}€ ya configurados)...`
-                                            : "Ej: Necesito ingredientes para una paella de 4 personas, presupuesto 15€, sin gluten..."
-                                        }
-                                        autoFocus
-                                        value={promptText}
-                                        onChange={(e) => setPromptText(e.target.value)}
-                                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); startOptimization(); }}}
-                                    ></textarea>
+                            {suggestions.length > 0 && !confirmed && (
+                                <div className="suggestions">
+                                    {suggestions.map((s, i) => (
+                                        <button key={i} className="suggestion-btn" onClick={() => sendMessage(s)}>{s}</button>
+                                    ))}
                                 </div>
+                            )}
 
-                                <div className="mt-14">
-                                    <button
-                                        onClick={startOptimization}
-                                        className="bg-merca text-white font-bold uppercase text-lg sm:text-xl px-12 py-5 rounded-2xl hover:bg-[#007a30] transition-all transform active:scale-95 shadow-md hover:shadow-lg disabled:opacity-50"
-                                        disabled={!promptText.trim()}
-                                        id="generate-btn"
-                                    >
-                                        Hacer Carrito
+                            <div className="chat-input-area">
+                                <div className="chat-input-wrapper">
+                                    <textarea className="chat-input" ref={inputRef}
+                                        rows="1" placeholder={confirmed ? 'Compra confirmada ✓' : 'Escribe a Mercadín...'}
+                                        value={inputText} onChange={e => setInputText(e.target.value)}
+                                        onKeyDown={handleKeyDown} disabled={confirmed || !sessionId}/>
+                                    <button className="send-btn" onClick={() => sendMessage(inputText)}
+                                        disabled={!inputText.trim() || confirmed || !sessionId}>
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                                        </svg>
                                     </button>
                                 </div>
                             </div>
-                        )}
+                        </div>
 
-                        {/* ================= ESTADO 2: CONSOLA DE INTELIGENCIA ================= */}
-                        {phase === 2 && (
-                            <div className="max-w-3xl mx-auto w-full animate-fade-in text-center pt-8">
-                                <h2 className="font-serif font-bold text-slate-900 text-3xl sm:text-4xl mb-12">
-                                    Consola de Inteligencia
-                                </h2>
+                        {/* ─── CART PANEL (desktop) ─── */}
+                        <LiveCart cart={cart} total={cartTotal} budget={budget}
+                            confirmed={confirmed} onConfirm={handleConfirm}
+                            agentLogs={agentLogs} highlightIds={highlightIds}/>
+                    </div>
 
-                                <div className="bg-white p-10 sm:p-14 rounded-3xl shadow-sm border border-slate-200 text-left space-y-8">
-                                    {steps.map((step) => (
-                                        <div key={step.id} className="flex items-start">
-                                            {step.status === 'completed' ? (
-                                                <div className="w-10 h-10 rounded-full bg-merca/10 flex items-center justify-center mr-6 shrink-0 transition-all">
-                                                    <svg className="w-6 h-6 text-merca" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
-                                                </div>
-                                            ) : step.status === 'error' ? (
-                                                <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center mr-6 shrink-0">
-                                                    <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                                </div>
-                                            ) : step.status === 'loading' ? (
-                                                <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center mr-6 shrink-0 transition-all border border-slate-100">
-                                                    <div className="w-4 h-4 rounded-full border-2 border-merca border-t-transparent animate-spin"></div>
-                                                </div>
-                                            ) : (
-                                                <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center mr-6 shrink-0 transition-all border border-slate-100">
-                                                    <div className="w-3 h-3 rounded-full bg-slate-200"></div>
-                                                </div>
-                                            )}
-
-                                            <div className="flex-1 pt-1">
-                                                <span className={`text-[20px] transition-colors duration-500 block ${step.status === 'completed' ? 'text-slate-900 font-semibold' : step.status === 'error' ? 'text-red-600 font-semibold' : step.status === 'loading' ? 'text-slate-700 font-medium' : 'text-slate-400 font-medium'}`}>
-                                                    {step.text}
-                                                </span>
-                                                {step.detail && (
-                                                    <span className="text-sm text-slate-400 mt-1 block">{step.detail}</span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {error && (
-                                    <div className="mt-8 bg-red-50 border border-red-200 rounded-2xl p-6 text-red-700">
-                                        <p className="font-semibold mb-2">Error de conexión</p>
-                                        <p className="text-sm">{error}</p>
-                                        <p className="text-sm mt-2">Asegúrate de que el servidor está corriendo: <code className="bg-red-100 px-2 py-1 rounded">python -m uvicorn src.backend.main:app --port 8000</code></p>
-                                        <button onClick={resetApp} className="mt-4 bg-red-600 text-white font-semibold px-6 py-2 rounded-xl hover:bg-red-700 transition-all">
-                                            Volver a intentar
-                                        </button>
-                                    </div>
-                                )}
+                    {/* ═══ MOBILE CART ═══ */}
+                    {cart.length > 0 && (
+                        <div className="mobile-cart-pill" onClick={() => setMobileCartOpen(true)}>
+                            🛒 {cartTotal.toFixed(2)}€ <span className="pill-count">{cart.length}</span>
+                        </div>
+                    )}
+                    {mobileCartOpen && (
+                        <div className="mobile-cart-overlay open" onClick={() => setMobileCartOpen(false)}>
+                            <div className="mobile-cart-sheet" onClick={e => e.stopPropagation()}>
+                                <div className="sheet-handle"></div>
+                                <LiveCart cart={cart} total={cartTotal} budget={budget}
+                                    confirmed={confirmed} onConfirm={handleConfirm}
+                                    agentLogs={agentLogs} highlightIds={highlightIds}/>
                             </div>
-                        )}
+                        </div>
+                    )}
 
-                        {/* ================= ESTADO 3: CARRITO ================= */}
-                        {phase === 3 && cartData && (
-                            <div className="flex flex-col lg:flex-row gap-10 items-start w-full animate-fade-in">
-
-                                {/* Columna Izquierda: Grid de Productos */}
-                                <div className="flex-1 w-full">
-                                    <h2 className="font-serif font-bold text-slate-900 text-3xl sm:text-4xl mb-4">
-                                        Cesta sugerida
-                                    </h2>
-                                    {cartData.demo_mode && (
-                                        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 mb-8 flex items-start gap-4">
-                                            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-                                                <span className="text-2xl">⚠️</span>
-                                            </div>
-                                            <div>
-                                                <h3 className="font-bold text-amber-900 text-lg">Modo Simulado Activado</h3>
-                                                <p className="text-amber-800/80 text-sm leading-relaxed">
-                                                    La API de Gemini ha fallado o no está configurada (posible límite de cuota). 
-                                                    El sistema ha activado el <b>motor semántico de respaldo</b> para procesar tu petición de forma determinista.
-                                                </p>
-                                                <p className="mt-3 text-xs text-amber-600 font-medium">
-                                                    TIP: Para usar IA real, configura una <code>GEMINI_API_KEY</code> válida en tu archivo <code>.env</code>.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {!cartData.demo_mode && (
-                                        <div className="bg-merca/5 border border-merca/20 rounded-2xl p-4 mb-8 flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-merca/10 flex items-center justify-center shrink-0">
-                                                <span className="text-sm">✨</span>
-                                            </div>
-                                            <p className="text-merca font-semibold text-sm">
-                                                Cesta generada con Inteligencia Artificial (Gemini 2.0 Flash)
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mt-4">
-
-                                        {cartData.products.map((product) => (
-                                            <div key={product.id} className="bg-white w-full rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col group hover:shadow-md transition-shadow">
-                                                <div className="w-full bg-slate-50 h-32 flex items-center justify-center border-b border-slate-100 p-4">
-                                                    <span className="text-4xl">
-                                                        {getCategoryEmoji(product.category)}
-                                                    </span>
-                                                </div>
-                                                <div className="p-6 flex-1 flex flex-col justify-between">
-                                                    <div>
-                                                        <div className="inline-block bg-merca/10 text-merca text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider mb-3">{product.brand}</div>
-                                                        <h3 className="text-slate-800 font-semibold mb-2 leading-snug">{product.name}</h3>
-                                                        <div className="flex flex-wrap gap-1 mb-2">
-                                                            {product.allergens.map(a => (
-                                                                <span key={a} className="bg-red-50 text-red-600 text-[10px] font-semibold px-2 py-0.5 rounded-full">{a}</span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-[22px] font-bold text-slate-900 mt-2">{product.price.toFixed(2)} €</div>
-                                                </div>
-                                            </div>
-                                        ))}
-
-                                    </div>
-
-                                    {/* Logs de los agentes */}
-                                    {cartData.agent_logs.length > 0 && (
-                                        <div className="mt-10 bg-white rounded-2xl border border-slate-200 p-6">
-                                            <h3 className="font-semibold text-slate-700 mb-4 text-lg">Decisiones de los Agentes</h3>
-                                            <div className="space-y-2">
-                                                {cartData.agent_logs.map((log, i) => (
-                                                    <p key={i} className="text-slate-500 text-sm">{log}</p>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Columna Derecha: Panel de Resumen Lateral */}
-                                <div className="w-full lg:w-[380px] flex-shrink-0">
-                                    <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 sticky top-28">
-                                        <h3 className="font-serif font-bold text-slate-900 text-2xl mb-8 border-b border-slate-100 pb-4">Resumen de Optimización</h3>
-
-                                        <div className="space-y-5 mb-10">
-                                            <div className="flex justify-between items-center text-lg">
-                                                <span className="text-slate-600">Presupuesto:</span>
-                                                <span className="font-bold text-slate-900">{cartData.budget.toFixed(2)} €</span>
-                                            </div>
-                                            <div className="flex justify-between items-center text-lg">
-                                                <span className="text-slate-600">Personas:</span>
-                                                <span className="font-bold text-slate-900">{cartData.people}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center text-lg">
-                                                <span className="text-slate-600">Dieta:</span>
-                                                <span className="font-semibold text-merca capitalize">{cartData.diet}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center text-lg border-b border-slate-100 pb-5">
-                                                <span className="text-slate-600">Seguridad Alimentaria:</span>
-                                                <span className="font-semibold text-merca bg-merca/10 px-3 py-1 rounded-md text-sm">✓ SEGURO</span>
-                                            </div>
-                                            <div className="flex justify-between items-end pt-3">
-                                                <span className="font-semibold text-slate-800 text-xl">Importe Total</span>
-                                                <span className="font-bold text-[34px] text-accent leading-none">{cartData.total.toFixed(2)} €</span>
-                                            </div>
-                                            <div className="text-right">
-                                                <span className="text-merca font-semibold text-sm">
-                                                    Ahorro: {(cartData.budget - cartData.total).toFixed(2)} €
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        <button className="w-full bg-merca text-white font-bold uppercase text-lg px-8 py-5 rounded-xl hover:bg-[#007a30] transition-transform transform active:scale-95 shadow-md" id="confirm-cart-btn">
-                                            CONFIRMAR CESTA
-                                        </button>
-                                        <p className="text-center text-slate-400 mt-4 text-sm font-medium">Transfiere tus datos de forma segura a Mercadona</p>
-
-                                        <button onClick={resetApp} className="w-full mt-4 text-slate-500 font-semibold text-sm hover:text-merca transition-colors py-2" id="new-cart-btn">
-                                            ← Nueva compra
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                    </main>
-
-                    {/* ===== PROFILE MODAL ===== */}
-                    <ProfileModal
-                        isOpen={profileOpen}
-                        onClose={() => setProfileOpen(false)}
-                        profile={profile}
-                        onSave={(updated) => setProfile(updated)}
-                    />
+                    {/* ═══ PROFILE MODAL ═══ */}
+                    <ProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)}
+                        profile={profile} onSave={(p) => { setProfile(p); resetSession(); }}/>
                 </div>
             );
         };
 
-        // Función helper para emojis por categoría
-        function getCategoryEmoji(category) {
-            const map = {
-                'carne': '🥩',
-                'pescado': '🐟',
-                'marisco': '🦐',
-                'lácteos': '🥛',
-                'huevos': '🥚',
-                'panadería': '🍞',
-                'cereales': '🌾',
-                'verduras': '🥬',
-                'conservas': '🥫',
-                'aceites': '🫒',
-                'condimentos': '🧂',
-                'legumbres': '🫘',
-                'bebidas': '🥤',
-                'dulces': '🍫',
-                'snacks': '🥜',
-            };
-            return map[category] || '🛒';
-        }
-
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        root.render(<App/>);
     </script>
 </body>
-
 </html>

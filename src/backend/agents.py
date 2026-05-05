@@ -494,3 +494,48 @@ def run_agents(
         return run_agents_demo(available_products, constraints)
     else:
         return run_agents_llm(available_products, constraints)
+
+
+# ═══════════════════════════════════════════════════════════
+#  DELTA AGENTS — Para el flujo conversacional de Mercadín
+# ═══════════════════════════════════════════════════════════
+
+def run_agents_delta(
+    current_cart: list[dict],
+    new_products: list[dict],
+    removed_ids: list[int],
+    constraints: dict,
+) -> CartState:
+    """
+    Ejecuta los agentes SOLO sobre los productos afectados por el delta.
+    Los productos existentes no afectados se mantienen intactos.
+
+    Args:
+        current_cart: Productos actualmente en el carrito
+        new_products: Productos nuevos a añadir
+        removed_ids: IDs de productos a eliminar
+        constraints: Constraints acumuladas de la sesión
+    """
+    # 1. Filtrar el carrito actual (quitar eliminados)
+    filtered_cart = [p for p in current_cart if p["id"] not in set(removed_ids)]
+
+    # 2. Combinar con productos nuevos
+    combined = filtered_cart + new_products
+
+    # 3. Crear estado para los agentes
+    state = CartState(
+        available_products=combined + new_products,  # Pool disponible
+        selected_products=combined,
+        budget=constraints.get("budget", 25.0),
+        people=constraints.get("people", 2),
+        diet=constraints.get("diet", "equilibrado"),
+        meal_type=constraints.get("meal_type", "general"),
+        notes=constraints.get("notes", ""),
+        search_queries=constraints.get("search_queries", []),
+    )
+
+    # 4. Solo ejecutar logístico y financiero (nutricionista ya seleccionó via CSP delta)
+    state = _demo_logistics(state)
+    state = _demo_financial(state)
+
+    return state

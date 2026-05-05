@@ -26,4 +26,4 @@ DB_PATH: str = os.getenv(
 )
 
 # ── Modelo Gemini ─────────────────────────────────────────
-GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")

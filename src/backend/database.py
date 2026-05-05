@@ -1,6 +1,7 @@
 """
 Base de datos SQLite de productos Mercadona.
 Soporta tanto seed data manual como datos scrapeados de la API.
+Incluye helpers para el motor de recomendaciones (productos próximos a caducar).
 """
 
 import json
@@ -51,6 +52,9 @@ def init_db() -> None:
     # Inicializar tabla de perfil de usuario
     from .user_profile import init_profile_table
     init_profile_table()
+    # Inicializar tablas de chat y historial
+    from .chat_session import init_chat_tables
+    init_chat_tables()
 
 
 def get_all_products(queries: list[str] = None) -> list[dict]:
@@ -95,6 +99,34 @@ def get_safe_products(excluded_allergens: list[str], search_queries: list[str] =
         if not product_allergens.intersection(excluded_allergens):
             safe.append(p)
     return safe
+
+
+def get_expiring_products(limit: int = 5) -> list[dict]:
+    """
+    Devuelve los productos con menor days_to_expiry.
+    Usado por el motor de recomendaciones proactivas de Mercadín.
+    """
+    conn = _get_conn()
+    rows = conn.execute(
+        "SELECT * FROM products WHERE days_to_expiry > 0 ORDER BY days_to_expiry ASC LIMIT ?",
+        (limit,)
+    ).fetchall()
+    conn.close()
+    return [_row_to_dict(r) for r in rows]
+
+
+def get_products_by_ids(product_ids: list[int]) -> list[dict]:
+    """Devuelve productos por sus IDs."""
+    if not product_ids:
+        return []
+    conn = _get_conn()
+    placeholders = ",".join("?" * len(product_ids))
+    rows = conn.execute(
+        f"SELECT * FROM products WHERE id IN ({placeholders})",
+        product_ids
+    ).fetchall()
+    conn.close()
+    return [_row_to_dict(r) for r in rows]
 
 
 def _row_to_dict(row: sqlite3.Row) -> dict:
