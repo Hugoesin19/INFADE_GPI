@@ -149,6 +149,7 @@ class ProfileIn(BaseModel):
     monthly_budget: Optional[float] = None
     per_cart_budget: Optional[float] = None
     preferences: Optional[str] = None
+    brand_preference: Optional[str] = None
 
 
 class ProfileOut(BaseModel):
@@ -162,6 +163,7 @@ class ProfileOut(BaseModel):
     month_spent: float
     month_start: str
     preferences: str
+    brand_preference: str
     created_at: str
     updated_at: str
     monthly_remaining: float
@@ -203,6 +205,7 @@ def chat_start():
         "people": profile.get("people", 2),
         "diet": profile.get("diet", "equilibrado"),
         "allergens": profile.get("allergens", []),
+        "brand_preference": profile.get("brand_preference", "Hacendado"),
         "meal_type": "general",
         "notes": "",
     }
@@ -218,6 +221,7 @@ def chat_start():
             "allergens": profile.get("allergens", []),
             "diet": profile.get("diet", "equilibrado"),
             "per_cart_budget": profile.get("per_cart_budget", 25),
+            "brand_preference": profile.get("brand_preference", "Hacendado"),
             "monthly_remaining": round(
                 profile.get("monthly_budget", 200) - profile.get("month_spent", 0), 2
             ),
@@ -278,21 +282,25 @@ def chat_message(request: ChatMessageRequest):
             current_cart = []
             cart_delta_out = CartDelta(added=[], removed=[p["id"] for p in session["cart_state"]], modified=[])
         else:
-            # Aplicar delta con CSP (muro de seguridad)
-            new_cart, added, removed_ids = apply_delta_filters(
-                current_cart, delta, constraints
+            # Obtener TODOS los productos seguros
+            safe_products = apply_filters(constraints)
+            
+            # Ejecutar agentes para calcular el nuevo estado del carrito
+            agent_result = run_agents_delta(
+                current_cart=current_cart,
+                delta=delta,
+                available_products=safe_products,
+                constraints=constraints,
             )
-
-            # Ejecutar agentes sobre el delta
-            if added or action == "add_to_cart":
-                agent_result = run_agents_delta(
-                    current_cart=current_cart,
-                    new_products=added,
-                    removed_ids=removed_ids,
-                    constraints=constraints,
-                )
-                new_cart = agent_result.selected_products
-                agent_logs = agent_result.agent_logs
+            new_cart = agent_result.selected_products
+            agent_logs = agent_result.agent_logs
+            
+            # Determinar added, removed_ids para el cliente (frontend)
+            old_ids = {p["id"] for p in current_cart}
+            new_ids = {p["id"] for p in new_cart}
+            
+            added = [p for p in new_cart if p["id"] not in old_ids]
+            removed_ids = list(old_ids - new_ids)
 
             current_cart = new_cart
             cart_delta_out = CartDelta(

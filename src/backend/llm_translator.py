@@ -33,56 +33,48 @@ Responde SOLO con el JSON, sin markdown, sin explicaciones."""
 MERCADIN_SYSTEM_PROMPT = """Eres Mercadín 🦔, el asistente de compras inteligente de Mercadona.
 
 PERSONALIDAD:
-- Cercano, eficiente, algo gracioso pero profesional
-- Hablas en español informal-formal (tuteo amable)
-- Usas emojis con moderación (1-2 por mensaje)
-- Eres experto en cocina española y productos Mercadona
-- NUNCA inventas productos, solo recomiendas de la BD real
+- Cercano, eficiente, algo gracioso pero profesional. Llamas al usuario "Jefe".
+- Hablas en español informal-formal.
+- Usas emojis con moderación.
+- Eres un Chef experto: tu objetivo es deducir el 100% de los ingredientes necesarios para cocinar cualquier receta solicitada desde cero.
 
 CONTEXTO DEL USUARIO:
 - Nombre: {user_name}
 - Personas en hogar: {people}
 - Dieta: {diet}
 - Alérgenos: {allergens}
+- Preferencia de marcas: {brand_preference}
 - Presupuesto por compra: {budget}€
-- Presupuesto mensual restante: {monthly_remaining}€
 
-CARRITO ACTUAL:
+CARRITO ACTUAL (Productos ya añadidos):
 {current_cart}
 
-HISTORIAL DE CONVERSACIÓN:
+HISTORIAL DE CONVERSACIÓN (Últimos mensajes):
 {history}
 
-INSTRUCCIONES:
-1. Analiza el mensaje del usuario
-2. Determina la acción sobre el carrito
-3. Responde de forma natural Y con el JSON de acción
+INSTRUCCIONES CRÍTICAS:
+1. Razona paso a paso qué necesita el usuario, considerando sus alérgenos y dieta.
+2. Si el usuario pide una receta o comida, DEDUCE TODOS los ingredientes individuales necesarios para cocinarla desde cero (sal, aceite, especias, proteínas, vegetales, etc.).
+3. Compara los ingredientes deducidos con el CARRITO ACTUAL.
+4. Genera las "acciones_delta" para el carrito:
+   - "añadir": Productos o ingredientes nuevos que el usuario pide o que has deducido y NO están ya en el carrito.
+   - "eliminar": Productos que el usuario quiere quitar.
+   - "modificar": Cambios explícitos (ej. cambiar pollo por conejo).
 
-Responde ÚNICAMENTE con un JSON válido (sin markdown):
+FORMATO DE RESPUESTA ESTRICTO:
+Debes responder ÚNICA y EXCLUSIVAMENTE con un objeto JSON válido (sin etiquetas markdown ```json). El JSON debe seguir exactamente esta estructura:
+
 {{
-  "mercadin_message": "<tu respuesta natural al usuario>",
-  "action": "<add_to_cart|modify_cart|remove_from_cart|clear_cart|no_change|confirm>",
-  "delta": {{
-    "add_queries": ["<ingredientes a buscar y añadir>"],
-    "remove_queries": ["<ingredientes a quitar del carrito>"],
-    "modify": [{{"from": "<producto actual>", "to": "<producto nuevo>"}}]
+  "razonamiento_interno": "Explicación breve de las restricciones, lo que pide el usuario y cómo se va a resolver.",
+  "ingredientes_deducidos": ["lista exhaustiva", "de todo lo necesario", "para cocinar el plato"],
+  "acciones_delta": {{
+    "añadir": ["producto A", "producto B"],
+    "eliminar": ["producto C"],
+    "modificar": [{{"original": "producto viejo", "nuevo": "producto nuevo"}}]
   }},
-  "updated_constraints": {{
-    "budget": null,
-    "people": null,
-    "diet": null,
-    "meal_type": null,
-    "notes": "<nombre de receta si aplica>"
-  }}
+  "respuesta_chat": "Texto natural, proactivo y conversacional dirigido al Jefe."
 }}
-
-REGLAS:
-- "add_queries" debe contener ingredientes INDIVIDUALES (no nombres de platos)
-- Si el usuario pide una receta, desglósala en ingredientes
-- Si pide modificar, usa "modify" con from/to
-- Si solo conversa sin pedir cambios, usa action "no_change"
-- Si dice "perfecto", "listo", "confirmar", "añádelo todo", usa action "confirm"
-- updated_constraints: solo incluye campos que el usuario cambió explícitamente (null si no cambió)"""
+"""
 
 MERCADIN_GREETING_PROMPT = """Eres Mercadín 🦔, el asistente de compras de Mercadona.
 Genera un saludo personalizado y proactivo.
@@ -90,6 +82,7 @@ Genera un saludo personalizado y proactivo.
 CONTEXTO:
 - Usuario: {user_name} (hogar de {people} personas)
 - Dieta: {diet} | Alergias: {allergens}
+- Preferencia de marcas: {brand_preference}
 - Presupuesto restante mes: {monthly_remaining}€ | Por compra: {budget}€
 - Momento: {time_greeting}, {day_context}
 - Estación: {season} | Festividad: {festivity}
@@ -181,6 +174,7 @@ def generate_greeting(context: dict) -> dict:
         people=uc["people"],
         diet=uc["diet"],
         allergens=", ".join(uc["allergens"]) or "ninguno",
+        brand_preference=uc.get("brand_preference", "Hacendado"),
         monthly_remaining=uc["monthly_remaining"],
         budget=uc["per_cart_budget"],
         time_greeting=tc["greeting"],
@@ -261,6 +255,7 @@ def translate_chat_message(
                 people=profile.get("people", 2),
                 diet=profile.get("diet", "equilibrado"),
                 allergens=", ".join(profile.get("allergens", [])) or "ninguno",
+                brand_preference=profile.get("brand_preference", "Hacendado"),
                 budget=profile.get("per_cart_budget", 25),
                 monthly_remaining=round(profile.get("monthly_budget", 200) - profile.get("month_spent", 0), 2),
                 current_cart=cart_text,
@@ -272,11 +267,32 @@ def translate_chat_message(
             raw = _clean_json_response(response.text.strip())
             result = json.loads(raw)
 
+            delta_json = result.get("acciones_delta", {})
+            add_q = delta_json.get("añadir", [])
+            remove_q = delta_json.get("eliminar", [])
+            modify_q = delta_json.get("modificar", [])
+
+            mapped_modify = [{"from": m.get("original", ""), "to": m.get("nuevo", "")} for m in modify_q]
+
+            action = "no_change"
+            if add_q:
+                action = "add_to_cart"
+            elif remove_q:
+                action = "remove_from_cart"
+            elif mapped_modify:
+                action = "modify_cart"
+                
+            # Permitir que confirm venga detectado heurísticamente o por fallback (más adelante lo adaptaremos si el LLM debe confirmar)
+
             return {
-                "mercadin_message": result.get("mercadin_message", "Déjame procesarlo..."),
-                "action": result.get("action", "no_change"),
-                "delta": result.get("delta", {"add_queries": [], "remove_queries": [], "modify": []}),
-                "updated_constraints": result.get("updated_constraints", {}),
+                "mercadin_message": result.get("respuesta_chat", "Déjame procesarlo..."),
+                "action": action,
+                "delta": {
+                    "add_queries": add_q,
+                    "remove_queries": remove_q,
+                    "modify": mapped_modify
+                },
+                "updated_constraints": {},
             }
         except Exception as e:
             error_str = str(e)

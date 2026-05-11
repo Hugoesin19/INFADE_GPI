@@ -26,6 +26,7 @@ class CartState:
     diet: str = "equilibrado"
     meal_type: str = "general"
     notes: str = ""
+    brand_preference: str = "Hacendado"
     search_queries: list[str] = field(default_factory=list)
     total: float = 0.0
     agent_logs: list[str] = field(default_factory=list)
@@ -42,8 +43,8 @@ def _demo_nutritionist(state: CartState) -> CartState:
     "carne picada", "tomate frito", "cebolla", "ajo", "aceite de oliva", "sal").
     """
     selected = []
-    used_ids = set()
-    used_subcategories = set()
+    used_ids = {p["id"] for p in state.selected_products}
+    used_subcategories = {p.get("subcategory", "").lower() for p in state.selected_products if p.get("subcategory")}
 
     def _find_best(keyword: str) -> dict | None:
         """Encuentra el mejor producto para un ingrediente con scoring de relevancia."""
@@ -116,7 +117,7 @@ def _demo_nutritionist(state: CartState) -> CartState:
                 used_subcategories.add(sub)
 
     # 2. Fallback: si no hay queries (no se reconoció receta), selección general
-    if not selected and not state.search_queries:
+    if not selected and not state.search_queries and not state.selected_products:
         base_cats = {"Carne", "Arroz, legumbres y pasta", "Fruta y verdura",
                      "Aceite, especias y salsas", "Huevos, leche y mantequilla"}
         for p in state.available_products:
@@ -126,7 +127,7 @@ def _demo_nutritionist(state: CartState) -> CartState:
                 if len(selected) >= 5:
                     break
 
-    state.selected_products = selected
+    state.selected_products.extend(selected)
 
     # Calcular macros totales
     tkcal = tprot = tcarb = tfat = 0.0
@@ -159,29 +160,44 @@ def _demo_logistics(state: CartState) -> CartState:
     waste_saved = 0
 
     for product in state.selected_products:
-        # ── Sustitución por Hacendado ─────────────────────
-        if product["brand"] != "Hacendado":
+        # ── Sustitución por Marca Preferida ─────────────────────
+        pref = state.brand_preference
+        
+        # Lógica para Hacendado
+        if pref == "Hacendado" and product["brand"] != "Hacendado":
             alternative = None
             best_expiry = 9999
-
             for p in state.available_products:
                 if (p["brand"] == "Hacendado"
                         and p["subcategory"] == product["subcategory"]
                         and p not in final
                         and p["id"] != product["id"]):
-                    # Preferir la alternativa con menor caducidad (reduce desperdicio)
                     expiry = p.get("days_to_expiry", 180)
                     if alternative is None or expiry < best_expiry:
                         alternative = p
                         best_expiry = expiry
-
+            if alternative:
+                final.append(alternative)
+                replaced += 1
+                continue
+                
+        # Lógica para Marcas Premium
+        elif pref == "Premium" and product["brand"] == "Hacendado":
+            alternative = None
+            for p in state.available_products:
+                if (p["brand"] != "Hacendado"
+                        and p["subcategory"] == product["subcategory"]
+                        and p not in final
+                        and p["id"] != product["id"]):
+                    # Si hay varias alternativas premium, podemos coger cualquiera (la primera)
+                    alternative = p
+                    break
             if alternative:
                 final.append(alternative)
                 replaced += 1
                 continue
 
-        # ── Dentro de Hacendado: priorizar caducidad próxima ─
-        # Si hay un producto equivalente (misma subcategoría) que caduca antes, sustituir
+        # ── Priorizar caducidad próxima dentro de la misma marca ─
         product_expiry = product.get("days_to_expiry", 180)
         shorter_expiry = None
 
@@ -202,12 +218,14 @@ def _demo_logistics(state: CartState) -> CartState:
             final.append(product)
 
     state.selected_products = final
-    pct = sum(1 for p in final if p["brand"] == "Hacendado") / max(len(final), 1) * 100
+    pct_hacendado = sum(1 for p in final if p["brand"] == "Hacendado") / max(len(final), 1) * 100
+    pct_premium = 100 - pct_hacendado
 
     # Calcular días promedio de caducidad de la cesta
     avg_expiry = sum(p.get("days_to_expiry", 180) for p in final) / max(len(final), 1)
 
-    log_parts = [f"📦 Logístico: {pct:.0f}% Hacendado (máximo margen)."]
+    pref_str = f"{pct_hacendado:.0f}% Hacendado" if state.brand_preference == "Hacendado" else f"{pct_premium:.0f}% Premium"
+    log_parts = [f"📦 Logístico: Preferencia {state.brand_preference} aplicada ({pref_str})."]
     if replaced:
         log_parts.append(f"{replaced} sustituciones de marca.")
     if waste_saved:
@@ -325,6 +343,7 @@ def run_agents_demo(
         diet=constraints.get("diet", "equilibrado"),
         meal_type=constraints.get("meal_type", "general"),
         notes=constraints.get("notes", ""),
+        brand_preference=constraints.get("brand_preference", "Hacendado"),
         search_queries=constraints.get("search_queries", []),
     )
 
@@ -383,6 +402,7 @@ def run_agents_llm(
         diet=constraints.get("diet", "equilibrado"),
         meal_type=constraints.get("meal_type", "general"),
         notes=constraints.get("notes", ""),
+        brand_preference=constraints.get("brand_preference", "Hacendado"),
         search_queries=constraints.get("search_queries", []),
     )
 
@@ -502,39 +522,65 @@ def run_agents(
 
 def run_agents_delta(
     current_cart: list[dict],
-    new_products: list[dict],
-    removed_ids: list[int],
+    delta: dict,
+    available_products: list[dict],
     constraints: dict,
 ) -> CartState:
     """
-    Ejecuta los agentes SOLO sobre los productos afectados por el delta.
-    Los productos existentes no afectados se mantienen intactos.
-
-    Args:
-        current_cart: Productos actualmente en el carrito
-        new_products: Productos nuevos a añadir
-        removed_ids: IDs de productos a eliminar
-        constraints: Constraints acumuladas de la sesión
+    Aplica acciones_delta sobre el carrito existente usando los agentes.
+    El Agente Nutricionista busca los nuevos ingredientes sin duplicar.
     """
-    # 1. Filtrar el carrito actual (quitar eliminados)
-    filtered_cart = [p for p in current_cart if p["id"] not in set(removed_ids)]
-
-    # 2. Combinar con productos nuevos
-    combined = filtered_cart + new_products
-
-    # 3. Crear estado para los agentes
     state = CartState(
-        available_products=combined + new_products,  # Pool disponible
-        selected_products=combined,
+        available_products=available_products,
+        selected_products=list(current_cart),
         budget=constraints.get("budget", 25.0),
         people=constraints.get("people", 2),
         diet=constraints.get("diet", "equilibrado"),
         meal_type=constraints.get("meal_type", "general"),
         notes=constraints.get("notes", ""),
-        search_queries=constraints.get("search_queries", []),
+        brand_preference=constraints.get("brand_preference", "Hacendado"),
+        search_queries=delta.get("add_queries", []),
     )
 
-    # 4. Solo ejecutar logístico y financiero (nutricionista ya seleccionó via CSP delta)
+    # 1. Aplicar eliminaciones y modificaciones
+    remove_queries = [q.lower() for q in delta.get("remove_queries", [])]
+    modifications = delta.get("modify", [])
+    
+    updated_cart = []
+    removed_ids = set()
+    
+    for p in state.selected_products:
+        name_l = p["name"].lower()
+        sub_l = p.get("subcategory", "").lower()
+        
+        # Eliminar si coincide con remove_queries
+        if any(q in name_l or q in sub_l for q in remove_queries):
+            removed_ids.add(p["id"])
+            continue
+            
+        # Eliminar si coincide con el "from" de una modificación
+        modified = False
+        for mod in modifications:
+            from_q = mod.get("from", "").lower()
+            if from_q and (from_q in name_l or from_q in sub_l):
+                removed_ids.add(p["id"])
+                # Añadir el "to" a las queries a buscar
+                to_q = mod.get("to", "")
+                if to_q:
+                    state.search_queries.append(to_q)
+                modified = True
+                break
+                
+        if not modified:
+            updated_cart.append(p)
+            
+    state.selected_products = updated_cart
+
+    # 2. Nutricionista busca los nuevos (add_queries + 'to' de modify)
+    if state.search_queries:
+        state = _demo_nutritionist(state)
+
+    # 3. Logístico y Financiero ajustan el carrito final
     state = _demo_logistics(state)
     state = _demo_financial(state)
 

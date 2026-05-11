@@ -56,7 +56,7 @@
         //  PROFILE MODAL
         // ═══════════════════════════════════════════════
         const ProfileModal = ({ isOpen, onClose, profile, onSave }) => {
-            const [form, setForm] = useState({ name:'', people:2, allergens:[], diet:'equilibrado', monthly_budget:200, per_cart_budget:25, preferences:'' });
+            const [form, setForm] = useState({ name:'', people:2, allergens:[], diet:'equilibrado', monthly_budget:200, per_cart_budget:25, preferences:'', brand_preference:'Hacendado' });
             const [saving, setSaving] = useState(false);
 
             useEffect(() => {
@@ -64,7 +64,7 @@
                     name: profile.name||'', people: profile.people||2,
                     allergens: profile.allergens||[], diet: profile.diet||'equilibrado',
                     monthly_budget: profile.monthly_budget||200, per_cart_budget: profile.per_cart_budget||25,
-                    preferences: profile.preferences||'',
+                    preferences: profile.preferences||'', brand_preference: profile.brand_preference||'Hacendado'
                 });
             }, [profile, isOpen]);
 
@@ -121,6 +121,14 @@
                                 </div>
                             </div>
                             <div>
+                                <label className="form-label">🏷️ Preferencia de Marcas</label>
+                                <select className="form-input" value={form.brand_preference} onChange={e=>setForm({...form, brand_preference: e.target.value})}>
+                                    <option value="Hacendado">Hacendado (Económico)</option>
+                                    <option value="Premium">Marcas Premium (Calidad)</option>
+                                    <option value="Indiferente">Indiferente (Lo mejor disponible)</option>
+                                </select>
+                            </div>
+                            <div>
                                 <label className="form-label">💰 Presupuesto por compra (€)</label>
                                 <input className="form-input" type="number" min="5" max="500" step="5" value={form.per_cart_budget}
                                     onChange={e=>setForm({...form,per_cart_budget:parseFloat(e.target.value)||25})}/>
@@ -151,6 +159,10 @@
                 <div className="cart-panel">
                     <div className="cart-header">
                         <h2>🛒 Carrito en Vivo {cart.length > 0 && <span className="cart-count">{cart.length}</span>}</h2>
+                        <div className="cart-budget-top" style={{marginTop: '12px'}}>
+                            <div className="budget-text" style={{marginBottom: '6px'}}>{total.toFixed(2)}€ de {budget.toFixed(0)}€ presupuesto · Ahorro: {Math.max(0,budget-total).toFixed(2)}€</div>
+                            <div className="budget-bar"><div className={`budget-bar-fill ${barClass}`} style={{width:`${pct}%`}}></div></div>
+                        </div>
                     </div>
                     <div className="cart-items">
                         {cart.length === 0 ? (
@@ -182,11 +194,9 @@
                     {cart.length > 0 && (
                         <div className="cart-summary">
                             <div className="cart-total-row">
-                                <span className="cart-total-label">Total</span>
+                                <span className="cart-total-label">Total a pagar</span>
                                 <span className="cart-total-amount">{total.toFixed(2)}€</span>
                             </div>
-                            <div className="budget-bar"><div className={`budget-bar-fill ${barClass}`} style={{width:`${pct}%`}}></div></div>
-                            <div className="budget-text">{total.toFixed(2)}€ de {budget.toFixed(0)}€ presupuesto · Ahorro: {Math.max(0,budget-total).toFixed(2)}€</div>
                             <button className={`confirm-btn ${confirmed?'confirmed':''}`}
                                 onClick={onConfirm} disabled={cart.length===0||confirmed}>
                                 {confirmed ? '✓ Compra Confirmada' : 'Confirmar Compra'}

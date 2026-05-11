@@ -27,13 +27,17 @@ DB_PATH = str(Path(__file__).resolve().parent / "mercadona.db")
 PRODUCTS = [
     # ─── ARROZ, LEGUMBRES Y PASTA ─────────────────────────
     ("Arroz redondo Hacendado", "Hacendado", "Arroz, legumbres y pasta", "Arroces", 1.25, 1.0, "kg", "Paquete", [], 354, 6.7, 78.0, 0.9),
+    ("Arroz redondo SOS", "SOS", "Arroz, legumbres y pasta", "Arroces", 2.15, 1.0, "kg", "Paquete", [], 354, 6.7, 78.0, 0.9),
     ("Arroz basmati Hacendado", "Hacendado", "Arroz, legumbres y pasta", "Arroces", 1.85, 1.0, "kg", "Paquete", [], 350, 7.5, 77.0, 0.6),
     ("Arroz integral Hacendado", "Hacendado", "Arroz, legumbres y pasta", "Arroces", 1.45, 1.0, "kg", "Paquete", [], 362, 7.9, 74.0, 2.7),
     ("Fideos nº3 Hacendado", "Hacendado", "Arroz, legumbres y pasta", "Pastas", 0.82, 0.5, "kg", "Paquete", ["gluten"], 359, 12.5, 72.0, 1.5),
     ("Espaguetis Hacendado", "Hacendado", "Arroz, legumbres y pasta", "Pastas", 0.85, 0.5, "kg", "Paquete", ["gluten"], 356, 12.0, 71.0, 1.8),
+    ("Espaguetis Gallo", "Gallo", "Arroz, legumbres y pasta", "Pastas", 1.45, 0.5, "kg", "Paquete", ["gluten"], 356, 12.0, 71.0, 1.8),
     ("Macarrones Hacendado", "Hacendado", "Arroz, legumbres y pasta", "Pastas", 0.82, 0.5, "kg", "Paquete", ["gluten"], 356, 12.0, 71.0, 1.8),
+    ("Macarrones Gallo", "Gallo", "Arroz, legumbres y pasta", "Pastas", 1.35, 0.5, "kg", "Paquete", ["gluten"], 356, 12.0, 71.0, 1.8),
     ("Pasta penne rigate Hacendado", "Hacendado", "Arroz, legumbres y pasta", "Pastas", 0.90, 0.5, "kg", "Paquete", ["gluten"], 355, 12.0, 71.0, 1.5),
     ("Lentejas pardinas Hacendado", "Hacendado", "Arroz, legumbres y pasta", "Legumbres", 1.65, 1.0, "kg", "Paquete", [], 338, 24.0, 52.0, 1.4),
+    ("Lentejas pardinas Luengo", "Luengo", "Arroz, legumbres y pasta", "Legumbres", 2.60, 1.0, "kg", "Paquete", [], 338, 24.0, 52.0, 1.4),
     ("Garbanzos Hacendado", "Hacendado", "Arroz, legumbres y pasta", "Legumbres", 1.75, 1.0, "kg", "Paquete", [], 364, 19.3, 55.0, 5.0),
     ("Alubias blancas Hacendado", "Hacendado", "Arroz, legumbres y pasta", "Legumbres", 1.80, 1.0, "kg", "Paquete", [], 329, 21.0, 50.0, 1.6),
 
@@ -47,14 +51,19 @@ PRODUCTS = [
     ("Lomo de cerdo en filetes", "Hacendado", "Carne", "Cerdo", 5.95, 0.5, "kg", "Bandeja", [], 143, 22.5, 0.0, 5.5),
     ("Chorizo de guisar Hacendado", "Hacendado", "Carne", "Embutidos", 2.10, 0.3, "kg", "Envase", [], 285, 14.0, 2.0, 24.0),
     ("Salchichas de pollo Hacendado", "Hacendado", "Carne", "Embutidos", 1.55, 0.4, "kg", "Envase", ["gluten"], 180, 13.0, 5.0, 12.0),
+    ("Salchichas de pollo Campofrío", "Campofrío", "Carne", "Embutidos", 2.45, 0.4, "kg", "Envase", ["gluten"], 180, 13.0, 5.0, 12.0),
     ("Hamburguesas de vacuno Hacendado", "Hacendado", "Carne", "Hamburguesas", 2.85, 0.32, "kg", "Bandeja", ["gluten"], 220, 16.0, 6.0, 15.0),
     ("Bacon ahumado en lonchas Hacendado", "Hacendado", "Carne", "Embutidos", 1.95, 0.2, "kg", "Envase", [], 270, 15.0, 1.0, 23.0),
+    ("Bacon ahumado El Pozo", "El Pozo", "Carne", "Embutidos", 2.75, 0.2, "kg", "Envase", [], 270, 15.0, 1.0, 23.0),
+    ("Jamón cocido extra El Pozo", "El Pozo", "Carne", "Embutidos", 2.80, 0.2, "kg", "Envase", [], 110, 18.0, 1.0, 3.5),
 
     # ─── MARISCO Y PESCADO ────────────────────────────────
     ("Lomos de merluza Hacendado", "Hacendado", "Marisco y pescado", "Pescado fresco", 5.90, 0.4, "kg", "Bandeja", ["pescado"], 82, 17.0, 0.0, 1.3),
+    ("Lomos de merluza Pescanova", "Pescanova", "Marisco y pescado", "Pescado fresco", 8.20, 0.4, "kg", "Bandeja", ["pescado"], 82, 17.0, 0.0, 1.3),
     ("Filetes de salmón", "Hacendado", "Marisco y pescado", "Pescado fresco", 7.50, 0.3, "kg", "Bandeja", ["pescado"], 208, 20.0, 0.0, 13.0),
     ("Gambas peladas congeladas Hacendado", "Hacendado", "Marisco y pescado", "Marisco", 5.45, 0.4, "kg", "Bolsa", ["crustáceos"], 85, 18.0, 0.0, 1.0),
     ("Atún claro en aceite de oliva Hacendado", "Hacendado", "Marisco y pescado", "Conservas de pescado", 2.10, 0.24, "kg", "Lata", ["pescado"], 198, 26.0, 0.0, 10.0),
+    ("Atún claro en aceite de oliva Calvo", "Calvo", "Marisco y pescado", "Conservas de pescado", 3.45, 0.24, "kg", "Lata", ["pescado"], 198, 26.0, 0.0, 10.0),
     ("Sardinas en aceite de oliva Hacendado", "Hacendado", "Marisco y pescado", "Conservas de pescado", 1.80, 0.12, "kg", "Lata", ["pescado"], 220, 22.0, 0.0, 14.0),
     ("Mejillones en escabeche Hacendado", "Hacendado", "Marisco y pescado", "Conservas de pescado", 2.35, 0.11, "kg", "Lata", ["moluscos"], 170, 18.0, 3.0, 9.0),
     ("Bacalao desalado desmigado Hacendado", "Hacendado", "Marisco y pescado", "Pescado fresco", 4.95, 0.3, "kg", "Bandeja", ["pescado"], 78, 18.0, 0.0, 0.4),
@@ -88,12 +97,17 @@ PRODUCTS = [
     ("Huevos camperos L Hacendado", "Hacendado", "Huevos, leche y mantequilla", "Huevos", 2.15, 12.0, "ud", "Cartón", ["huevo"], 155, 13.0, 1.1, 11.0),
     ("Huevos frescos M Hacendado", "Hacendado", "Huevos, leche y mantequilla", "Huevos", 1.79, 12.0, "ud", "Cartón", ["huevo"], 155, 13.0, 1.1, 11.0),
     ("Leche entera Hacendado", "Hacendado", "Huevos, leche y mantequilla", "Leche", 0.89, 1.0, "L", "Brik", ["lactosa"], 65, 3.2, 4.8, 3.6),
+    ("Leche entera Pascual", "Pascual", "Huevos, leche y mantequilla", "Leche", 1.25, 1.0, "L", "Brik", ["lactosa"], 65, 3.2, 4.8, 3.6),
     ("Leche semidesnatada Hacendado", "Hacendado", "Huevos, leche y mantequilla", "Leche", 0.85, 1.0, "L", "Brik", ["lactosa"], 46, 3.2, 4.8, 1.6),
+    ("Leche semidesnatada Pascual", "Pascual", "Huevos, leche y mantequilla", "Leche", 1.15, 1.0, "L", "Brik", ["lactosa"], 46, 3.2, 4.8, 1.6),
     ("Leche sin lactosa Hacendado", "Hacendado", "Huevos, leche y mantequilla", "Leche", 1.05, 1.0, "L", "Brik", [], 46, 3.2, 4.8, 1.6),
+    ("Leche sin lactosa Pascual", "Pascual", "Huevos, leche y mantequilla", "Leche", 1.35, 1.0, "L", "Brik", [], 46, 3.2, 4.8, 1.6),
     ("Mantequilla Hacendado", "Hacendado", "Huevos, leche y mantequilla", "Mantequilla", 1.69, 0.25, "kg", "Envase", ["lactosa"], 743, 0.6, 0.8, 82.0),
+    ("Mantequilla Arias", "Arias", "Huevos, leche y mantequilla", "Mantequilla", 2.35, 0.25, "kg", "Envase", ["lactosa"], 743, 0.6, 0.8, 82.0),
     ("Nata para cocinar Hacendado", "Hacendado", "Huevos, leche y mantequilla", "Nata", 0.85, 0.2, "L", "Brik", ["lactosa"], 200, 2.4, 3.5, 20.0),
     ("Nata para montar Hacendado", "Hacendado", "Huevos, leche y mantequilla", "Nata", 1.25, 0.5, "L", "Brik", ["lactosa"], 308, 2.2, 3.2, 32.0),
     ("Bebida de avena Hacendado", "Hacendado", "Huevos, leche y mantequilla", "Leche", 1.15, 1.0, "L", "Brik", ["gluten"], 42, 0.3, 8.0, 1.0),
+    ("Bebida de avena Alpro", "Alpro", "Huevos, leche y mantequilla", "Leche", 2.05, 1.0, "L", "Brik", ["gluten"], 42, 0.3, 8.0, 1.0),
     ("Bebida de soja Hacendado", "Hacendado", "Huevos, leche y mantequilla", "Leche", 1.19, 1.0, "L", "Brik", ["soja"], 39, 3.3, 2.5, 1.8),
 
     # ─── CHARCUTERÍA Y QUESOS ─────────────────────────────
@@ -110,7 +124,9 @@ PRODUCTS = [
 
     # ─── ACEITE, ESPECIAS Y SALSAS ────────────────────────
     ("Aceite de oliva virgen extra Hacendado", "Hacendado", "Aceite, especias y salsas", "Aceites", 4.95, 1.0, "L", "Botella", [], 900, 0.0, 0.0, 100.0),
+    ("Aceite de oliva virgen extra Carbonell", "Carbonell", "Aceite, especias y salsas", "Aceites", 7.95, 1.0, "L", "Botella", [], 900, 0.0, 0.0, 100.0),
     ("Aceite de oliva suave Hacendado", "Hacendado", "Aceite, especias y salsas", "Aceites", 4.10, 1.0, "L", "Botella", [], 900, 0.0, 0.0, 100.0),
+    ("Aceite de oliva suave Carbonell", "Carbonell", "Aceite, especias y salsas", "Aceites", 6.85, 1.0, "L", "Botella", [], 900, 0.0, 0.0, 100.0),
     ("Aceite de girasol Hacendado", "Hacendado", "Aceite, especias y salsas", "Aceites", 1.85, 1.0, "L", "Botella", [], 900, 0.0, 0.0, 100.0),
     ("Vinagre de vino Hacendado", "Hacendado", "Aceite, especias y salsas", "Vinagres", 0.69, 0.5, "L", "Botella", [], 4, 0.0, 0.1, 0.0),
     ("Sal fina Hacendado", "Hacendado", "Aceite, especias y salsas", "Especias", 0.42, 1.0, "kg", "Paquete", [], 0, 0.0, 0.0, 0.0),
@@ -119,11 +135,14 @@ PRODUCTS = [
     ("Pimentón de la Vera ahumado", "Hacendado", "Aceite, especias y salsas", "Especias", 1.69, 0.075, "kg", "Lata", [], 282, 15.0, 34.0, 13.0),
     ("Orégano Hacendado", "Hacendado", "Aceite, especias y salsas", "Especias", 0.95, 0.02, "kg", "Bote", [], 265, 9.0, 49.0, 4.3),
     ("Tomate frito Hacendado", "Hacendado", "Aceite, especias y salsas", "Salsas", 0.99, 0.4, "kg", "Brik", [], 78, 1.2, 8.5, 4.2),
+    ("Tomate frito Orlando", "Orlando", "Aceite, especias y salsas", "Salsas", 1.60, 0.4, "kg", "Brik", [], 78, 1.2, 8.5, 4.2),
     ("Tomate triturado Hacendado", "Hacendado", "Aceite, especias y salsas", "Salsas", 0.89, 0.8, "kg", "Brik", [], 30, 1.2, 4.2, 0.2),
     ("Salsa boloñesa Hacendado", "Hacendado", "Aceite, especias y salsas", "Salsas", 1.49, 0.3, "kg", "Tarro", ["gluten"], 95, 5.0, 7.0, 5.0),
     ("Salsa pesto verde Hacendado", "Hacendado", "Aceite, especias y salsas", "Salsas", 1.89, 0.19, "kg", "Tarro", ["lactosa", "frutos_secos"], 330, 5.0, 6.0, 32.0),
     ("Mayonesa Hacendado", "Hacendado", "Aceite, especias y salsas", "Salsas", 1.55, 0.45, "kg", "Bote", ["huevo"], 680, 1.0, 2.5, 75.0),
+    ("Mayonesa Hellmann's", "Hellmann's", "Aceite, especias y salsas", "Salsas", 2.85, 0.45, "kg", "Bote", ["huevo"], 680, 1.0, 2.5, 75.0),
     ("Kétchup Hacendado", "Hacendado", "Aceite, especias y salsas", "Salsas", 1.25, 0.34, "kg", "Bote", [], 110, 1.5, 25.0, 0.3),
+    ("Kétchup Heinz", "Heinz", "Aceite, especias y salsas", "Salsas", 2.20, 0.34, "kg", "Bote", [], 110, 1.5, 25.0, 0.3),
     ("Mostaza Hacendado", "Hacendado", "Aceite, especias y salsas", "Salsas", 0.99, 0.2, "kg", "Bote", [], 66, 4.0, 5.0, 3.0),
 
     # ─── PANADERÍA Y PASTELERÍA ───────────────────────────
@@ -180,10 +199,15 @@ PRODUCTS = [
 
     # ─── AGUA Y REFRESCOS ─────────────────────────────────
     ("Agua mineral Bezoya", "Bezoya", "Agua y refrescos", "Agua", 0.45, 1.5, "L", "Botella", [], 0, 0.0, 0.0, 0.0),
+    ("Agua mineral Font Vella", "Font Vella", "Agua y refrescos", "Agua", 0.65, 1.5, "L", "Botella", [], 0, 0.0, 0.0, 0.0),
     ("Agua mineral Hacendado (pack 6)", "Hacendado", "Agua y refrescos", "Agua", 1.20, 9.0, "L", "Pack", [], 0, 0.0, 0.0, 0.0),
+    ("Agua mineral Font Vella (pack 6)", "Font Vella", "Agua y refrescos", "Agua", 3.50, 9.0, "L", "Pack", [], 0, 0.0, 0.0, 0.0),
     ("Refresco de naranja Hacendado", "Hacendado", "Agua y refrescos", "Refrescos", 0.79, 2.0, "L", "Botella", [], 42, 0.0, 10.0, 0.0),
+    ("Refresco de naranja Fanta", "Fanta", "Agua y refrescos", "Refrescos", 1.85, 2.0, "L", "Botella", [], 42, 0.0, 10.0, 0.0),
     ("Refresco de cola Hacendado", "Hacendado", "Agua y refrescos", "Refrescos", 0.79, 2.0, "L", "Botella", [], 42, 0.0, 10.5, 0.0),
+    ("Refresco de cola Coca-Cola", "Coca-Cola", "Agua y refrescos", "Refrescos", 2.10, 2.0, "L", "Botella", [], 42, 0.0, 10.5, 0.0),
     ("Tónica Hacendado", "Hacendado", "Agua y refrescos", "Refrescos", 1.55, 1.5, "L", "Pack", [], 34, 0.0, 8.5, 0.0),
+    ("Tónica Schweppes", "Schweppes", "Agua y refrescos", "Refrescos", 2.95, 1.5, "L", "Pack", [], 34, 0.0, 8.5, 0.0),
 
     # ─── ZUMOS ────────────────────────────────────────────
     ("Zumo de naranja exprimido Hacendado", "Hacendado", "Zumos", "Zumo refrigerado", 2.25, 1.0, "L", "Botella", [], 45, 0.7, 10.0, 0.1),
@@ -205,6 +229,7 @@ PRODUCTS = [
 
     # ─── APERITIVOS ───────────────────────────────────────
     ("Patatas fritas lisas Hacendado", "Hacendado", "Aperitivos", "Patatas fritas", 1.25, 0.15, "kg", "Bolsa", [], 536, 6.0, 50.0, 35.0),
+    ("Patatas fritas lisas Lays", "Lays", "Aperitivos", "Patatas fritas", 2.15, 0.15, "kg", "Bolsa", [], 536, 6.0, 50.0, 35.0),
     ("Frutos secos variados Hacendado", "Hacendado", "Aperitivos", "Frutos secos", 3.25, 0.2, "kg", "Bolsa", ["frutos_secos"], 607, 20.0, 17.0, 52.0),
     ("Almendras tostadas Hacendado", "Hacendado", "Aperitivos", "Frutos secos", 2.85, 0.2, "kg", "Bolsa", ["frutos_secos"], 598, 21.0, 10.0, 52.0),
     ("Aceitunas verdes manzanilla Hacendado", "Hacendado", "Aperitivos", "Aceitunas", 1.35, 0.4, "kg", "Tarro", [], 130, 1.0, 1.0, 13.5),
@@ -346,7 +371,7 @@ def create_database():
 
     cats = conn.execute("SELECT category, COUNT(*) as c FROM products GROUP BY category ORDER BY c DESC").fetchall()
 
-    print(f"\n✅ {inserted} productos insertados en {DB_PATH}")
+    print(f"\n[OK] {inserted} productos insertados en {DB_PATH}")
     print(f"\n📊 Resumen:")
     print(f"   Total: {total}")
     print(f"   Hacendado: {hacendado} ({hacendado*100//total}%)")

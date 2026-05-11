@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     month_spent     REAL    DEFAULT 0.0,
     month_start     TEXT    DEFAULT '',
     preferences     TEXT    DEFAULT '',
+    brand_preference TEXT   DEFAULT 'Hacendado',
     created_at      TEXT    DEFAULT '',
     updated_at      TEXT    DEFAULT ''
 );
@@ -85,8 +86,8 @@ def get_profile() -> dict:
         conn.execute(
             """INSERT INTO user_profiles (id, name, people, allergens, diet,
                monthly_budget, per_cart_budget, month_spent, month_start,
-               preferences, created_at, updated_at)
-               VALUES (1, '', 2, '[]', 'equilibrado', 200.0, 25.0, 0.0, ?, '', ?, ?)""",
+               preferences, brand_preference, created_at, updated_at)
+               VALUES (1, '', 2, '[]', 'equilibrado', 200.0, 25.0, 0.0, ?, '', 'Hacendado', ?, ?)""",
             (month_start, now, now),
         )
         conn.commit()
@@ -116,7 +117,7 @@ def update_profile(data: dict) -> dict:
     """
     valid_fields = {
         "name", "people", "allergens", "diet",
-        "monthly_budget", "per_cart_budget", "preferences",
+        "monthly_budget", "per_cart_budget", "preferences", "brand_preference"
     }
 
     updates = {}
