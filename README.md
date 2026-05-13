@@ -48,3 +48,4 @@ El desarrollo de *Mercadona Autopilot* se ha estructurado de forma iterativa, pi
 * [hecho] Arquitectura de datos definida.
 * [hecho] Backend LLM y CSP funcionales.
 * [hecho] Interfaz conversacional y carrito dinámico desplegados (Sprint 3).
+* [en proceso] Categorización más exacta de productos
