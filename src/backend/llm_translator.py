@@ -289,7 +289,7 @@ Reglas:
 - Nombres simples de supermercado (ej: "pechuga de pollo", no "suprema de ave")
 - Solo JSON, sin markdown, sin explicaciones
 
-Petición del usuario: "{{request}}"
+Petición del usuario: "{request_text}"
 """
     try:
         from google import genai
@@ -297,7 +297,7 @@ Petición del usuario: "{{request}}"
         
         response = client.models.generate_content(
             model=GEMINI_MODEL,
-            contents=_CHEF_PROMPT.format(request=request_text),
+            contents=_CHEF_PROMPT,
         )
         raw = _clean_json_response(response.text.strip())
         result = json.loads(raw)

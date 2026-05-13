@@ -9,11 +9,10 @@ from dotenv import load_dotenv
 
 # Cargar .env desde la raíz del proyecto
 _project_root = Path(__file__).resolve().parent.parent.parent
-load_dotenv(_project_root / ".env")
-
 # ── API Keys ──────────────────────────────────────────────
-# Clave hardcodeada para evitar uso de .env
+# Pega tu clave de Gemini entre las comillas:
 GEMINI_API_KEY = "AIzaSyCsX76xPfpgSCgZwDE1j-BJ3qpMNToT_rU"
+
 
 # ── Modos ─────────────────────────────────────────────────
 # Modo demo si no hay API key válida configurada
@@ -26,4 +25,4 @@ DB_PATH: str = os.getenv(
 )
 
 # ── Modelo Gemini ─────────────────────────────────────────
-GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")

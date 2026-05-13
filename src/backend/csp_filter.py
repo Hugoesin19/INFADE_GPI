@@ -386,11 +386,13 @@ def apply_delta_filters(
         from_query = mod.get("from", "").lower()
         to_query = mod.get("to", "")
 
-        # Quitar el producto viejo
+        # Quitar el producto viejo y guardarlo por si falla la búsqueda del nuevo
+        removed_this_mod = None
         for p in list(updated_cart):
             name_lower = p["name"].lower()
             sub_lower = p.get("subcategory", "").lower()
             if from_query in name_lower or from_query in sub_lower:
+                removed_this_mod = p
                 removed_ids.append(p["id"])
                 updated_cart.remove(p)
                 break
@@ -412,6 +414,11 @@ def apply_delta_filters(
             if best["id"] not in {p["id"] for p in updated_cart}:
                 updated_cart.append(best)
                 added_products.append(best)
+        else:
+            # Si no se encontró el producto de sustitución, restaurar el original
+            if removed_this_mod:
+                removed_ids.remove(removed_this_mod["id"])
+                updated_cart.append(removed_this_mod)
 
     # ─── 3. Procesar adiciones ───────────────────────────
     add_queries = delta.get("add_queries", [])
