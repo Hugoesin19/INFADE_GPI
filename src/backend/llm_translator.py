@@ -629,35 +629,54 @@ def _fallback_chat_message(
     detected_people = int(people_match.group(1)) if people_match else None
 
     # ─── 5. RESOLUCIÓN DE RECETAS / PLANIFICACIÓN ────────
-    # Prioridad: DB exacta → composición → IA → keywords → vocabulario suelto
+    # Prioridad absoluta: LLM Chef → DB exacta → composición → keywords → vocabulario
     ingredients = []
     dish_name = None
     meal_type_hint = None
 
-    # ── 5a. Buscar en _RECIPE_DB (matches exactos, instantáneo) ──
-    best_recipe = None
-    best_recipe_score = 0
-    for recipe in _RECIPE_DB:
-        for name in recipe["names"]:
-            if name in text:
-                score = len(name)
-                if " " in name:
-                    score += 100  # Priorizar matches multi-palabra
-                if score > best_recipe_score:
-                    best_recipe = recipe
-                    best_recipe_score = score
+    # ── 5a. IA COMO FUENTE PRIMARIA ──
+    # Limpiar el texto para extraer la petición culinaria
+    dish_text = text
+    for strip_pattern in [
+        r"(?:quiero|necesito|ponme|hazme|prepara|dame)\s+(?:hacer\s+)?(?:una?\s+)?",
+        r"\s*(?:para\s+\d+\s+personas?)",
+        r"\s*(?:con\s+\d+\s+euros?)",
+        r"\s*(?:por\s+favor)",
+    ]:
+        dish_text = re.sub(strip_pattern, "", dish_text).strip()
 
-    if best_recipe:
-        ingredients = list(best_recipe["ingredients"])
-        meal_type_hint = best_recipe.get("meal_type")
-        for name in sorted(best_recipe["names"], key=len, reverse=True):
-            if name in text:
-                dish_name = name
-                break
-        if not dish_name:
-            dish_name = list(best_recipe["names"])[0]
+    if len(dish_text) >= 3:
+        llm_result = _extract_ingredients_with_llm(dish_text, profile)
+        if llm_result:
+            ingredients = llm_result["ingredients"]
+            dish_name = llm_result["dish_name"]
+            meal_type_hint = llm_result.get("meal_type", "comida")
 
-    # ── 5b. Composición inteligente (pizza + carbonara, instantáneo) ──
+    # ── 5b. Buscar en _RECIPE_DB (fallback local, matches exactos) ──
+    if not ingredients:
+        best_recipe = None
+        best_recipe_score = 0
+        for recipe in _RECIPE_DB:
+            for name in recipe["names"]:
+                if name in text:
+                    score = len(name)
+                    if " " in name:
+                        score += 100  # Priorizar matches multi-palabra
+                    if score > best_recipe_score:
+                        best_recipe = recipe
+                        best_recipe_score = score
+
+        if best_recipe:
+            ingredients = list(best_recipe["ingredients"])
+            meal_type_hint = best_recipe.get("meal_type")
+            for name in sorted(best_recipe["names"], key=len, reverse=True):
+                if name in text:
+                    dish_name = name
+                    break
+            if not dish_name:
+                dish_name = list(best_recipe["names"])[0]
+
+    # ── 5c. Composición inteligente (pizza + carbonara, fallback) ──
     if not ingredients:
         comp_name, comp_ingredients, comp_meal = _try_composite_recipe(text)
         if comp_name and comp_ingredients:
@@ -665,40 +684,22 @@ def _fallback_chat_message(
             dish_name = comp_name
             meal_type_hint = comp_meal
 
-    # ── 5c. Proteína específica (combinar con plato base) ──
-    protein_found = None
-    for protein_keyword, product_name in _PROTEIN_HINTS.items():
-        if protein_keyword in text:
-            protein_found = product_name
-            break
-
-    if dish_name and protein_found:
-        has_protein = any(protein_found.lower() in i.lower() for i in ingredients)
-        if not has_protein:
-            ingredients.insert(0, protein_found)
-
-    if not dish_name and protein_found and not ingredients:
-        dish_name = protein_found
-        ingredients = [protein_found, "patatas selección", "cebolla", "aceite de oliva", "sal"]
-
-    # ── 5d. IA COMO FUENTE PRIMARIA (para todo lo no reconocido) ──
+    # ── 5d. Proteína específica (combinar con plato base) ──
     if not ingredients:
-        # Limpiar el texto para extraer la petición culinaria
-        dish_text = text
-        for strip_pattern in [
-            r"(?:quiero|necesito|ponme|hazme|prepara|dame)\s+(?:hacer\s+)?(?:una?\s+)?",
-            r"\s*(?:para\s+\d+\s+personas?)",
-            r"\s*(?:con\s+\d+\s+euros?)",
-            r"\s*(?:por\s+favor)",
-        ]:
-            dish_text = re.sub(strip_pattern, "", dish_text).strip()
+        protein_found = None
+        for protein_keyword, product_name in _PROTEIN_HINTS.items():
+            if protein_keyword in text:
+                protein_found = product_name
+                break
 
-        if len(dish_text) >= 3:
-            llm_result = _extract_ingredients_with_llm(dish_text, profile)
-            if llm_result:
-                ingredients = llm_result["ingredients"]
-                dish_name = llm_result["dish_name"]
-                meal_type_hint = llm_result.get("meal_type", "comida")
+        if dish_name and protein_found:
+            has_protein = any(protein_found.lower() in i.lower() for i in ingredients)
+            if not has_protein:
+                ingredients.insert(0, protein_found)
+
+        if not dish_name and protein_found and not ingredients:
+            dish_name = protein_found
+            ingredients = [protein_found, "patatas selección", "cebolla", "aceite de oliva", "sal"]
 
     # ── 5e. Fallback local: _INGREDIENT_KNOWLEDGE ──
     if not ingredients:

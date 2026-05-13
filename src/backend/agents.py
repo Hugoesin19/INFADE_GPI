@@ -48,36 +48,51 @@ def _demo_nutritionist(state: CartState) -> CartState:
 
     def _find_best(keyword: str) -> dict | None:
         """Encuentra el mejor producto para un ingrediente con scoring de relevancia."""
+        import unicodedata
+        import re
+        def normalize_str(s):
+            s = ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+            s = s.lower()
+            s = re.sub(r'\b(el|la|los|las|un|una|unos|unas|mi|mis)\b', '', s)
+            return s.strip()
+
         candidates = []
-        kw = keyword.lower()
+        kw = normalize_str(keyword)
         kw_words = set(kw.split())
 
         for p in state.available_products:
             if p["id"] in used_ids:
                 continue
 
-            name_l = p["name"].lower()
-            sub_l = p.get("subcategory", "").lower()
+            name_l = normalize_str(p["name"])
+            sub_l = normalize_str(p.get("subcategory", ""))
 
             # Verificar si el producto tiene relación con el keyword
             # Se busca en nombre y subcategoría
             match = False
             score = 0
 
-            # Coincidencia exacta o substring en nombre
-            if kw in name_l:
+            name_words = set(name_l.split())
+            
+            # Coincidencia exacta o substring completo
+            if kw == name_l or f" {kw} " in f" {name_l} ":
                 match = True
-                # Bonus si el nombre empieza con el keyword
                 if name_l.startswith(kw):
                     score += 100
                 else:
                     score += 70
-            # Alguna de las palabras clave está en el nombre
-            elif kw_words and any(w in name_l for w in kw_words if len(w) >= 3):
+            # Alguna de las palabras clave está en el nombre (como palabra exacta)
+            elif kw_words and any(w in name_words for w in kw_words if len(w) >= 3):
                 match = True
-                # Cuántas palabras del keyword coinciden
-                matching_words = sum(1 for w in kw_words if w in name_l and len(w) >= 3)
+                matching_words = sum(1 for w in kw_words if w in name_words and len(w) >= 3)
                 score += 40 + (matching_words * 15)
+                
+                # Gran bonus si comparten la primera palabra (el sustantivo principal)
+                kw_first = kw.split()[0] if kw.split() else ""
+                name_first = name_l.split()[0] if name_l.split() else ""
+                if kw_first == name_first and len(kw_first) >= 3:
+                    score += 80
+
             # Subcategoría contiene el keyword
             elif kw in sub_l:
                 match = True
@@ -417,11 +432,11 @@ def _get_smart_complements(
     return unique
 
 
-def _demo_financial_conservative(state: CartState) -> CartState:
+def _demo_financial_conservative(state: CartState, add_complements: bool = True) -> CartState:
     """
     Agente Financiero para flujo conversacional delta.
     1. Recorta si excede presupuesto.
-    2. Si queda margen significativo (>30% del presupuesto), sugiere
+    2. Si queda margen significativo (>30% del presupuesto) y add_complements es True, sugiere
        complementos relevantes para maximizar el valor de la compra.
     """
     base_total = sum(p["price"] for p in state.selected_products)
@@ -461,7 +476,7 @@ def _demo_financial_conservative(state: CartState) -> CartState:
         usage_pct = (running_total / state.budget * 100) if state.budget > 0 else 100
         added_complements = []
 
-        if remaining >= 2.0 and usage_pct < 70:
+        if add_complements and remaining >= 2.0 and usage_pct < 70:
             cart_ids = {p["id"] for p in state.selected_products}
             cart_names_lower = " ".join(p["name"].lower() for p in state.selected_products)
 
@@ -713,16 +728,25 @@ def run_agents_delta(
         search_queries=delta.get("add_queries", []),
     )
 
+    # Helper para quitar tildes
+    import unicodedata
+    import re
+    def strip_accents_and_articles(s):
+        s = ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+        s = s.lower()
+        s = re.sub(r'\b(el|la|los|las|un|una|unos|unas|mi|mis)\b', '', s)
+        return s.strip()
+
     # 1. Aplicar eliminaciones y modificaciones
-    remove_queries = [q.lower() for q in delta.get("remove_queries", [])]
+    remove_queries = [strip_accents_and_articles(q) for q in delta.get("remove_queries", [])]
     modifications = delta.get("modify", [])
     
     updated_cart = []
     removed_ids = set()
     
     for p in state.selected_products:
-        name_l = p["name"].lower()
-        sub_l = p.get("subcategory", "").lower()
+        name_l = strip_accents_and_articles(p["name"])
+        sub_l = strip_accents_and_articles(p.get("subcategory", ""))
         
         # Eliminar si coincide con remove_queries
         if any(q in name_l or q in sub_l for q in remove_queries):
@@ -732,7 +756,7 @@ def run_agents_delta(
         # Eliminar si coincide con el "from" de una modificación
         modified = False
         for mod in modifications:
-            from_q = mod.get("from", "").lower()
+            from_q = strip_accents_and_articles(mod.get("from", ""))
             if from_q and (from_q in name_l or from_q in sub_l):
                 removed_ids.add(p["id"])
                 # Añadir el "to" a las queries a buscar
@@ -754,6 +778,6 @@ def run_agents_delta(
     # 3. Financiero conservador: solo recorta si excede presupuesto
     #    NO ejecutamos Logístico (no sustituir productos sin permiso)
     #    NO añadimos complementos no solicitados
-    state = _demo_financial_conservative(state)
+    state = _demo_financial_conservative(state, add_complements=False)
 
     return state
