@@ -19,7 +19,7 @@ from pydantic import BaseModel
 from .config import DEMO_MODE
 from .database import init_db, get_expiring_products
 from .llm_translator import translate_prompt, generate_greeting, translate_chat_message
-from .csp_filter import apply_filters, apply_delta_filters
+from .csp_filter import apply_filters, apply_delta_filters, validate_cart_allergens
 from .agents import run_agents, run_agents_delta
 from .user_profile import get_profile, update_profile, add_spending
 from .recommender import generate_greeting_context
@@ -263,11 +263,17 @@ def chat_message(request: ChatMessageRequest):
     delta = llm_result["delta"]
     updated_constraints = llm_result.get("updated_constraints", {})
 
-    # Actualizar constraints si el LLM devolvió cambios
+    # Actualizar constraints si el translator devolvió cambios
     if updated_constraints:
         for key, value in updated_constraints.items():
             if value is not None:
-                constraints[key] = value
+                if key == "allergens":
+                    # Merge: unir alérgenos nuevos con los existentes
+                    existing = set(constraints.get("allergens", []))
+                    existing.update(value)
+                    constraints["allergens"] = list(existing)
+                else:
+                    constraints[key] = value
         update_constraints(request.session_id, constraints)
 
     # Procesar el delta sobre el carrito
@@ -294,6 +300,14 @@ def chat_message(request: ChatMessageRequest):
             )
             new_cart = agent_result.selected_products
             agent_logs = agent_result.agent_logs
+
+            # Validación POST-agente: muro de alérgenos ABSOLUTO
+            allergens = constraints.get("allergens", [])
+            if allergens:
+                new_cart, csp_logs = validate_cart_allergens(
+                    new_cart, allergens, safe_products
+                )
+                agent_logs.extend(csp_logs)
             
             # Determinar added, removed_ids para el cliente (frontend)
             old_ids = {p["id"] for p in current_cart}
@@ -451,6 +465,16 @@ def generate_cart(request: CartRequest):
 
     t0 = time.time()
     result = run_agents(safe_products, constraints)
+
+    # Validación POST-agente: muro de alérgenos ABSOLUTO
+    allergens = constraints.get("allergens", [])
+    if allergens:
+        result.selected_products, csp_logs = validate_cart_allergens(
+            result.selected_products, allergens, safe_products
+        )
+        result.total = round(sum(p["price"] for p in result.selected_products), 2)
+        result.agent_logs.extend(csp_logs)
+
     steps.append({
         "id": 3, "text": "Ajustes finales para mejorar la cesta...", "status": "completed",
         "detail": f"Cesta: {len(result.selected_products)} productos, Total: {result.total}€",

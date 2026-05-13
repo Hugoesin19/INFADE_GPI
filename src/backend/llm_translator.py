@@ -49,17 +49,22 @@ CONTEXTO DEL USUARIO:
 CARRITO ACTUAL (Productos ya añadidos):
 {current_cart}
 
+CATÁLOGO DISPONIBLE (productos reales en la base de datos):
+{catalog}
+
 HISTORIAL DE CONVERSACIÓN (Últimos mensajes):
 {history}
 
 INSTRUCCIONES CRÍTICAS:
 1. Razona paso a paso qué necesita el usuario, considerando sus alérgenos y dieta.
-2. Si el usuario pide una receta o comida, DEDUCE TODOS los ingredientes individuales necesarios para cocinarla desde cero (sal, aceite, especias, proteínas, vegetales, etc.).
+2. Si el usuario pide una receta o comida, DEDUCE TODOS los ingredientes individuales necesarios para cocinarla desde cero.
+   IMPORTANTE: Busca coincidencias en el CATÁLOGO DISPONIBLE y usa los nombres exactos de los productos que encuentres.
 3. Compara los ingredientes deducidos con el CARRITO ACTUAL.
 4. Genera las "acciones_delta" para el carrito:
-   - "añadir": Productos o ingredientes nuevos que el usuario pide o que has deducido y NO están ya en el carrito.
+   - "añadir": Nombres de productos del CATÁLOGO DISPONIBLE que NO están ya en el carrito.
    - "eliminar": Productos que el usuario quiere quitar.
    - "modificar": Cambios explícitos (ej. cambiar pollo por conejo).
+5. En "acciones_delta.añadir", usa SOLO nombres de productos del CATÁLOGO DISPONIBLE. NO inventes productos que no existen.
 
 FORMATO DE RESPUESTA ESTRICTO:
 Debes responder ÚNICA y EXCLUSIVAMENTE con un objeto JSON válido (sin etiquetas markdown ```json). El JSON debe seguir exactamente esta estructura:
@@ -131,6 +136,14 @@ _RECIPE_DB = [
      "ingredients": ["hamburguesas de vacuno", "pan de hamburguesa", "lechuga", "tomates pera", "queso tierno", "kétchup"]},
     {"names": {"pizza"}, "meal_type": "cena",
      "ingredients": ["masa de pizza", "tomate frito", "mozzarella", "jamón cocido", "aceite de oliva"]},
+    {"names": {"pizza carbonara"}, "meal_type": "cena",
+     "ingredients": ["masa de pizza", "tomate frito", "mozzarella", "bacon", "huevos", "queso rallado", "aceite de oliva"]},
+    {"names": {"pizza barbacoa", "pizza bbq"}, "meal_type": "cena",
+     "ingredients": ["masa de pizza", "tomate frito", "mozzarella", "pollo", "bacon", "cebolla", "aceite de oliva"]},
+    {"names": {"pizza 4 quesos", "pizza cuatro quesos"}, "meal_type": "cena",
+     "ingredients": ["masa de pizza", "tomate frito", "mozzarella", "queso rallado", "queso tierno", "aceite de oliva"]},
+    {"names": {"pizza margarita", "pizza margherita"}, "meal_type": "cena",
+     "ingredients": ["masa de pizza", "tomate frito", "mozzarella", "aceite de oliva"]},
     {"names": {"desayuno"}, "meal_type": "desayuno",
      "ingredients": ["leche", "cereales", "pan de molde", "mermelada", "zumo de naranja"]},
     {"names": {"salmón", "salmón a la plancha"}, "meal_type": "cena",
@@ -138,6 +151,179 @@ _RECIPE_DB = [
     {"names": {"pollo asado", "pollo al horno"}, "meal_type": "comida",
      "ingredients": ["muslos de pollo", "patatas selección", "cebolla", "aceite de oliva virgen", "sal", "pimienta negra"]},
 ]
+
+# ── Bases y variantes para recetas compuestas ────────────
+# Cuando el usuario pide "pizza carbonara", se combina la base "pizza"
+# con la variante "carbonara" eliminando duplicados e ingredientes
+# que no tienen sentido (ej: espaguetis no van en pizza).
+
+_RECIPE_BASES = {
+    "pizza": {
+        "base_ingredients": ["masa de pizza", "tomate frito", "mozzarella", "aceite de oliva"],
+        "meal_type": "cena",
+        # Ingredientes de la variante que NO deben incluirse con esta base
+        "exclude_from_variant": ["espaguetis", "macarrones", "pasta", "arroz", "fideos"],
+    },
+    "arroz": {
+        "base_ingredients": ["arroz redondo", "aceite de oliva", "sal", "caldo"],
+        "meal_type": "comida",
+        "exclude_from_variant": ["espaguetis", "macarrones", "pasta", "masa de pizza", "fideos"],
+    },
+    "pasta": {
+        "base_ingredients": ["espaguetis", "aceite de oliva"],
+        "meal_type": "comida",
+        "exclude_from_variant": ["arroz redondo", "masa de pizza"],
+    },
+}
+
+_RECIPE_VARIANTS = {
+    "carbonara": {
+        "sauce_ingredients": ["bacon", "huevos", "queso rallado", "pimienta negra"],
+    },
+    "boloñesa": {
+        "sauce_ingredients": ["carne picada", "tomate frito", "cebolla", "ajo", "sal"],
+    },
+    "bolognesa": {
+        "sauce_ingredients": ["carne picada", "tomate frito", "cebolla", "ajo", "sal"],
+    },
+    "4 quesos": {
+        "sauce_ingredients": ["mozzarella", "queso rallado", "queso tierno"],
+    },
+    "cuatro quesos": {
+        "sauce_ingredients": ["mozzarella", "queso rallado", "queso tierno"],
+    },
+    "barbacoa": {
+        "sauce_ingredients": ["pollo", "bacon", "cebolla", "kétchup"],
+    },
+    "pesto": {
+        "sauce_ingredients": ["queso rallado", "piñones", "ajo", "aceite de oliva virgen"],
+    },
+    "al ajillo": {
+        "sauce_ingredients": ["ajo", "guindilla", "aceite de oliva virgen", "sal"],
+    },
+    "a la marinera": {
+        "sauce_ingredients": ["gambas", "mejillones", "ajo", "vino blanco", "tomate"],
+    },
+    "con setas": {
+        "sauce_ingredients": ["champiñones", "ajo", "nata para cocinar", "sal"],
+    },
+    "con verduras": {
+        "sauce_ingredients": ["calabacín", "pimientos", "cebolla", "zanahoria", "tomate"],
+    },
+}
+
+
+def _try_composite_recipe(text: str) -> tuple[str | None, list[str], str]:
+    """
+    Intenta componer una receta a partir de base + variante.
+    Ej: "pizza carbonara" -> base pizza + salsa carbonara (sin espaguetis)
+    
+    Returns:
+        (dish_name, ingredients, meal_type) o (None, [], "")
+    """
+    found_base = None
+    found_variant = None
+    
+    # Buscar base
+    for base_name, base_data in _RECIPE_BASES.items():
+        if base_name in text:
+            found_base = (base_name, base_data)
+            break
+    
+    # Buscar variante
+    # Priorizar variantes multi-palabra
+    for variant_name in sorted(_RECIPE_VARIANTS.keys(), key=len, reverse=True):
+        if variant_name in text:
+            found_variant = (variant_name, _RECIPE_VARIANTS[variant_name])
+            break
+    
+    if found_base and found_variant:
+        base_name, base_data = found_base
+        variant_name, variant_data = found_variant
+        
+        # Combinar: base + salsa, excluyendo ingredientes incompatibles
+        exclude_set = set(i.lower() for i in base_data.get("exclude_from_variant", []))
+        
+        ingredients = list(base_data["base_ingredients"])
+        for ingr in variant_data["sauce_ingredients"]:
+            if ingr.lower() not in exclude_set and ingr not in ingredients:
+                ingredients.append(ingr)
+        
+        dish_name = f"{base_name} {variant_name}"
+        return dish_name, ingredients, base_data["meal_type"]
+    
+    return None, [], ""
+
+
+def _extract_ingredients_with_llm(request_text: str, profile: dict | None = None) -> dict | None:
+    """
+    Usa Gemini para entender CUALQUIER petición culinaria y devolver ingredientes.
+    Maneja: recetas, compras semanales, dietas específicas, planificación.
+    
+    Returns:
+        dict con {dish_name, ingredients, meal_type} o None si falla.
+    """
+    if DEMO_MODE:
+        return None
+
+    # Construir contexto del perfil
+    profile = profile or {}
+    diet = profile.get("diet", "equilibrado")
+    people = profile.get("people", 2)
+    allergens = profile.get("allergens", [])
+    allergens_text = ", ".join(allergens) if allergens else "ninguno"
+
+    _CHEF_PROMPT = f"""Eres un nutricionista-chef de Mercadona España. El usuario te pide algo relacionado con comida.
+Devuelve SOLO un JSON con esta estructura exacta:
+
+{{"nombre": "nombre del plato o plan", "tipo": "comida|cena|desayuno|semanal", "ingredientes": ["ingrediente1", "ingrediente2", ...]}}
+
+Reglas:
+- Ingredientes INDIVIDUALES que se encuentren en Mercadona España
+- Si es una compra semanal o planificación, incluye ingredientes para varias comidas equilibradas (proteínas, carbohidratos, verduras, frutas, lácteos, básicos)
+- Si menciona dieta (atleta, vegano, etc.), adapta los ingredientes a esa dieta
+- Para {people} personas
+- Alérgenos a EXCLUIR: {allergens_text}
+- Dieta del usuario: {diet}
+- Máximo 20 ingredientes para recetas, 30 para compra semanal
+- Nombres simples de supermercado (ej: "pechuga de pollo", no "suprema de ave")
+- Solo JSON, sin markdown, sin explicaciones
+
+Petición del usuario: "{{request}}"
+"""
+    try:
+        from google import genai
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=_CHEF_PROMPT.format(request=request_text),
+        )
+        raw = _clean_json_response(response.text.strip())
+        result = json.loads(raw)
+        
+        if isinstance(result, dict) and "ingredientes" in result:
+            ingredients = [i.strip() for i in result["ingredientes"] if isinstance(i, str) and i.strip()]
+            if ingredients:
+                dish_name = result.get("nombre", request_text)
+                meal_type = result.get("tipo", "comida")
+                print(f"[LLM Chef] '{request_text}' → {dish_name} ({len(ingredients)} ingredientes)")
+                return {"dish_name": dish_name, "ingredients": ingredients, "meal_type": meal_type}
+        
+        # Fallback: si devolvió una lista simple en vez de dict
+        if isinstance(result, list) and len(result) > 0:
+            clean = [i.strip() for i in result if isinstance(i, str) and i.strip()]
+            if clean:
+                return {"dish_name": request_text, "ingredients": clean, "meal_type": "comida"}
+        
+        return None
+    except Exception as e:
+        error_str = str(e)
+        if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+            print(f"[LLM Chef] Rate-limited para '{request_text}'. Usando fallback local.")
+        else:
+            print(f"[LLM Chef] Error para '{request_text}': {e}")
+        return None
 
 
 # ══════════════════════════════════════════════════════════════
@@ -222,96 +408,9 @@ def translate_chat_message(
 ) -> dict:
     """
     Procesa un mensaje del usuario en el contexto conversacional.
-    Usa Gemini para entender el intent y generar la respuesta + delta.
-    Reintenta automáticamente en caso de rate-limit (429).
+    Usa SIEMPRE el motor determinista para respuesta instantánea.
+    El LLM se reserva para el saludo proactivo (donde la latencia es aceptable).
     """
-    if DEMO_MODE:
-        return _fallback_chat_message(history, current_cart, profile, user_message)
-
-    import time as _time
-
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            from google import genai
-            client = genai.Client(api_key=GEMINI_API_KEY)
-
-            # Formatear historial
-            history_text = ""
-            for msg in history[-10:]:
-                role = "Usuario" if msg["role"] == "user" else "Mercadín"
-                history_text += f"{role}: {msg['content']}\n"
-
-            # Formatear carrito actual
-            cart_text = "Vacío"
-            if current_cart:
-                cart_lines = []
-                for p in current_cart:
-                    cart_lines.append(f"- [ID:{p['id']}] {p['name']} ({p['brand']}) — {p['price']}€")
-                cart_text = "\n".join(cart_lines)
-
-            prompt = MERCADIN_SYSTEM_PROMPT.format(
-                user_name=profile.get("name", "amigo/a"),
-                people=profile.get("people", 2),
-                diet=profile.get("diet", "equilibrado"),
-                allergens=", ".join(profile.get("allergens", [])) or "ninguno",
-                brand_preference=profile.get("brand_preference", "Hacendado"),
-                budget=profile.get("per_cart_budget", 25),
-                monthly_remaining=round(profile.get("monthly_budget", 200) - profile.get("month_spent", 0), 2),
-                current_cart=cart_text,
-                history=history_text,
-            )
-
-            full_prompt = f"{prompt}\n\nMENSAJE DEL USUARIO: {user_message}"
-            response = client.models.generate_content(model=GEMINI_MODEL, contents=full_prompt)
-            raw = _clean_json_response(response.text.strip())
-            result = json.loads(raw)
-
-            delta_json = result.get("acciones_delta", {})
-            add_q = delta_json.get("añadir", [])
-            remove_q = delta_json.get("eliminar", [])
-            modify_q = delta_json.get("modificar", [])
-
-            mapped_modify = [{"from": m.get("original", ""), "to": m.get("nuevo", "")} for m in modify_q]
-
-            action = "no_change"
-            if add_q:
-                action = "add_to_cart"
-            elif remove_q:
-                action = "remove_from_cart"
-            elif mapped_modify:
-                action = "modify_cart"
-                
-            # Permitir que confirm venga detectado heurísticamente o por fallback (más adelante lo adaptaremos si el LLM debe confirmar)
-
-            return {
-                "mercadin_message": result.get("respuesta_chat", "Déjame procesarlo..."),
-                "action": action,
-                "delta": {
-                    "add_queries": add_q,
-                    "remove_queries": remove_q,
-                    "modify": mapped_modify
-                },
-                "updated_constraints": {},
-            }
-        except Exception as e:
-            error_str = str(e)
-            # Retry on rate-limit (429)
-            if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
-                # Parse retry delay from error if available
-                delay = 5 * (attempt + 1)  # 5s, 10s, 15s
-                retry_match = re.search(r"retry.*?(\d+(?:\.\d+)?)s", error_str.lower())
-                if retry_match:
-                    delay = min(float(retry_match.group(1)) + 1, 20)
-                print(f"[Mercadín] Rate-limited (429). Reintentando en {delay}s... (intento {attempt+1}/{max_retries})")
-                _time.sleep(delay)
-                continue
-            else:
-                print(f"[Mercadín] Error en chat con LLM: {e}")
-                break
-
-    # Si todos los reintentos fallan, usar fallback inteligente
-    print("[Mercadín] Todos los reintentos agotados. Usando fallback inteligente.")
     return _fallback_chat_message(history, current_cart, profile, user_message)
 
 
@@ -392,14 +491,94 @@ def _fallback_chat_message(
     """
     text = user_message.lower().strip()
 
-    # ─── 1. Detectar confirmación ────────────────────────
+    # ─── 1. Detectar confirmación (solo si el mensaje es puramente confirmatorio) ──
     confirm_words = {"perfecto", "listo", "confirmar", "confirmo", "añádelo", "vale", "ok", "sí", "de acuerdo", "todo bien"}
-    if any(w in text for w in confirm_words) and current_cart:
+    negate_words = {"pero", "aunque", "también", "añade", "quita", "pon", "cambia", "más", "menos", "otro", "quiero"}
+    text_words = set(text.split())
+    is_pure_confirm = (
+        len(text_words) <= 4
+        and any(w in text for w in confirm_words)
+        and not any(w in text for w in negate_words)
+    )
+    if is_pure_confirm and current_cart:
         return {
             "mercadin_message": "¡Perfecto! 🎉 Tu compra está lista. ¿Confirmamos?",
             "action": "confirm",
             "delta": {"add_queries": [], "remove_queries": [], "modify": []},
             "updated_constraints": {},
+        }
+
+    # ─── 1b. Detectar declaración de ALERGIA ─────────────
+    allergen_map = {
+        "gluten": "gluten", "trigo": "gluten", "celiac": "gluten", "celiaco": "gluten", "celíaco": "gluten",
+        "lactosa": "lactosa", "leche": "lactosa", "lácteo": "lactosa", "lacteo": "lactosa",
+        "huevo": "huevo", "huevos": "huevo",
+        "frutos secos": "frutos_secos", "nueces": "frutos_secos", "cacahuete": "frutos_secos", "almendra": "frutos_secos",
+        "marisco": "crustáceos", "crustáceo": "crustáceos", "gamba": "crustáceos",
+        "pescado": "pescado",
+    }
+    allergen_triggers = [
+        r"(?:soy |tengo )(?:alergi[cao]|intoleranci[ao]|intolerant[ea])\s+(?:al?|a la|a los|a las)\s+([\w\s]+)",
+        r"(?:alergi[cao]|intoleranci[ao])\s+(?:al?|a la|a los|a las)\s+([\w\s]+)",
+        r"no puedo (?:comer|tomar|consumir)\s+([\w\s]+)",
+    ]
+    detected_allergens = []
+
+    # Primero: detectar con patrones conversacionales
+    for pattern in allergen_triggers:
+        m = re.search(pattern, text)
+        if m:
+            raw = m.group(1).strip().rstrip(".")
+            for keyword, allergen in allergen_map.items():
+                if keyword in raw:
+                    if allergen not in detected_allergens:
+                        detected_allergens.append(allergen)
+
+    # Segundo: detectar "sin X" como declaración de alergia (no como eliminación de carrito)
+    # Solo si parece una declaración general (no "sin cebolla" que es eliminación)
+    if not detected_allergens:
+        sin_match = re.findall(r"(?:^|[\s,])sin\s+([\w\s]+?)(?:[,.\s]|$)", text)
+        for raw in sin_match:
+            raw = raw.strip()
+            for keyword, allergen in allergen_map.items():
+                if keyword in raw:
+                    if allergen not in detected_allergens:
+                        detected_allergens.append(allergen)
+
+    if detected_allergens:
+        # Construir lista de productos a eliminar del carrito actual
+        from .csp_filter import _product_has_allergen
+        remove_queries = []
+        for p in current_cart:
+            for allergen in detected_allergens:
+                if _product_has_allergen(p, allergen):
+                    remove_queries.append(p["name"])
+                    break
+
+        allergen_names = ", ".join(detected_allergens)
+        removed_text = ""
+        if remove_queries:
+            removed_text = f"\n\n🚫 He quitado del carrito: {', '.join(remove_queries[:5])}"
+            if len(remove_queries) > 5:
+                removed_text += f" y {len(remove_queries) - 5} más"
+
+        msg = (
+            f"¡Anotado, Jefe! 🦔 Registro tu alergia a **{allergen_names}**. "
+            f"A partir de ahora filtro todos los productos con estos alérgenos."
+            f"{removed_text}"
+            f"\n\n¿Necesitas algo más?"
+        )
+
+        action = "remove_from_cart" if remove_queries else "no_change"
+        return {
+            "mercadin_message": msg,
+            "action": action,
+            "delta": {
+                "add_queries": [],
+                "remove_queries": remove_queries,
+                "modify": [],
+            },
+            "updated_constraints": {"allergens": detected_allergens},
         }
 
     # ─── 2. Detectar eliminación ─────────────────────────
@@ -416,15 +595,28 @@ def _fallback_chat_message(
             }
 
     # ─── 3. Detectar sustitución ─────────────────────────
+    # Patrones: (grupo1=lo que se quita, grupo2=lo que se pone)
     modify_patterns = [
-        r"cambia\s+(.*?)\s+por\s+(.*)", r"sustituye\s+(.*?)\s+por\s+(.*)",
-        r"pon\s+(.*?)\s+en vez de\s+(.*)", r"mejor\s+(.*?)\s+que\s+(.*)",
+        (r"cambia\s+(.*?)\s+por\s+(.*)", 1, 2),       # cambia pollo por conejo
+        (r"sustituye\s+(.*?)\s+por\s+(.*)", 1, 2),     # sustituye pollo por conejo
+        (r"pon(?:me)?\s+(.*?)\s+en vez de\s+(.*)", 2, 1),  # pon conejo en vez de pollo → from=pollo, to=conejo
+        (r"en vez de\s+(.*?)\s+pon(?:me)?\s+(.*)", 1, 2),  # en vez de pollo pon conejo
+        (r"mejor\s+(.*?)\s+que\s+(.*)", 2, 1),         # mejor conejo que pollo → from=pollo, to=conejo
+        (r"prefiero\s+(.*?)\s+(?:a|al|que)\s+(.*)", 2, 1), # prefiero conejo a pollo
+        (r"quiero\s+(.*?)\s+en lugar de\s+(.*)", 2, 1),    # quiero conejo en lugar de pollo
     ]
-    for pattern in modify_patterns:
+
+    def _clean_item(s: str) -> str:
+        """Limpia artículos y preposiciones del nombre extraído."""
+        s = s.strip().rstrip(".,;:!?")
+        s = re.sub(r"^(?:el|la|los|las|un|una|unos|unas|del|al)\s+", "", s)
+        return s.strip()
+
+    for pattern, from_idx, to_idx in modify_patterns:
         m = re.search(pattern, text)
         if m:
-            to_item = m.group(1).strip()
-            from_item = m.group(2).strip()
+            from_item = _clean_item(m.group(from_idx))
+            to_item = _clean_item(m.group(to_idx))
             return {
                 "mercadin_message": f"¡Hecho! Cambio {from_item} por {to_item} 🔄",
                 "action": "modify_cart",
@@ -436,41 +628,92 @@ def _fallback_chat_message(
     people_match = re.search(r"para\s+(\d+)", text)
     detected_people = int(people_match.group(1)) if people_match else None
 
-    # ─── 5. ANÁLISIS SEMÁNTICO: buscar plato + proteína ──
+    # ─── 5. RESOLUCIÓN DE RECETAS / PLANIFICACIÓN ────────
+    # Prioridad: DB exacta → composición → IA → keywords → vocabulario suelto
     ingredients = []
     dish_name = None
+    meal_type_hint = None
 
-    # Buscar coincidencias en la base de conocimiento
-    # Primero intentar match de plato completo (ej: "estofado de conejo")
-    best_match_len = 0
-    for keyword, ingr_list in _INGREDIENT_KNOWLEDGE.items():
-        if keyword in text and len(keyword) > best_match_len:
-            ingredients = list(ingr_list)
-            dish_name = keyword
-            best_match_len = len(keyword)
+    # ── 5a. Buscar en _RECIPE_DB (matches exactos, instantáneo) ──
+    best_recipe = None
+    best_recipe_score = 0
+    for recipe in _RECIPE_DB:
+        for name in recipe["names"]:
+            if name in text:
+                score = len(name)
+                if " " in name:
+                    score += 100  # Priorizar matches multi-palabra
+                if score > best_recipe_score:
+                    best_recipe = recipe
+                    best_recipe_score = score
 
-    # Buscar proteína específica mencionada
+    if best_recipe:
+        ingredients = list(best_recipe["ingredients"])
+        meal_type_hint = best_recipe.get("meal_type")
+        for name in sorted(best_recipe["names"], key=len, reverse=True):
+            if name in text:
+                dish_name = name
+                break
+        if not dish_name:
+            dish_name = list(best_recipe["names"])[0]
+
+    # ── 5b. Composición inteligente (pizza + carbonara, instantáneo) ──
+    if not ingredients:
+        comp_name, comp_ingredients, comp_meal = _try_composite_recipe(text)
+        if comp_name and comp_ingredients:
+            ingredients = comp_ingredients
+            dish_name = comp_name
+            meal_type_hint = comp_meal
+
+    # ── 5c. Proteína específica (combinar con plato base) ──
     protein_found = None
     for protein_keyword, product_name in _PROTEIN_HINTS.items():
         if protein_keyword in text:
             protein_found = product_name
             break
 
-    # Si encontramos un plato base Y una proteína, combinar
     if dish_name and protein_found:
-        # Añadir la proteína si no está ya
         has_protein = any(protein_found.lower() in i.lower() for i in ingredients)
         if not has_protein:
             ingredients.insert(0, protein_found)
-        # Limpiar: quitar proteínas genéricas si hay una específica
-        ingredients = [i for i in ingredients if i != protein_found or i == protein_found]
 
-    # Si NO encontramos ningún plato pero sí proteína, crear plato genérico
-    if not dish_name and protein_found:
+    if not dish_name and protein_found and not ingredients:
         dish_name = protein_found
-        ingredients = [protein_found, "patatas selección", "cebolla", "aceite de oliva", "sal", "pimienta negra"]
+        ingredients = [protein_found, "patatas selección", "cebolla", "aceite de oliva", "sal"]
 
-    # ─── 6. Buscar ingredientes sueltos mencionados ──────
+    # ── 5d. IA COMO FUENTE PRIMARIA (para todo lo no reconocido) ──
+    if not ingredients:
+        # Limpiar el texto para extraer la petición culinaria
+        dish_text = text
+        for strip_pattern in [
+            r"(?:quiero|necesito|ponme|hazme|prepara|dame)\s+(?:hacer\s+)?(?:una?\s+)?",
+            r"\s*(?:para\s+\d+\s+personas?)",
+            r"\s*(?:con\s+\d+\s+euros?)",
+            r"\s*(?:por\s+favor)",
+        ]:
+            dish_text = re.sub(strip_pattern, "", dish_text).strip()
+
+        if len(dish_text) >= 3:
+            llm_result = _extract_ingredients_with_llm(dish_text, profile)
+            if llm_result:
+                ingredients = llm_result["ingredients"]
+                dish_name = llm_result["dish_name"]
+                meal_type_hint = llm_result.get("meal_type", "comida")
+
+    # ── 5e. Fallback local: _INGREDIENT_KNOWLEDGE ──
+    if not ingredients:
+        best_match_score = 0
+        for keyword, ingr_list in _INGREDIENT_KNOWLEDGE.items():
+            if keyword in text:
+                score = len(keyword)
+                if " " in keyword:
+                    score += 50
+                if score > best_match_score:
+                    ingredients = list(ingr_list)
+                    dish_name = keyword
+                    best_match_score = score
+
+    # ── 5f. Ingredientes sueltos mencionados ──
     if not ingredients:
         _FOOD_VOCAB = {
             "arroz", "pollo", "carne", "pescado", "verdura", "fruta", "leche",
@@ -491,22 +734,21 @@ def _fallback_chat_message(
             ingredients = found_foods
             dish_name = "ingredientes"
 
-    # ─── 7. Si encontramos algo, añadir al carrito ───────
+    # ─── 6. Si encontramos algo, añadir al carrito ───────
     if ingredients:
-        # Ajustar constraints
         updated = {}
         if detected_people:
             updated["people"] = detected_people
         if dish_name and dish_name != "ingredientes":
             updated["notes"] = dish_name
-            updated["meal_type"] = "comida"
+            updated["meal_type"] = meal_type_hint or "comida"
 
         name = dish_name or "lo que me pides"
         people_text = f" para {detected_people} personas" if detected_people else ""
         msg = (
             f"¡**{name.title()}**{people_text}! Buena elección 👨‍🍳\n\n"
             f"He preparado estos ingredientes:\n"
-            + "\n".join(f"• {i.title()}" for i in ingredients[:12])
+            + "\n".join(f"• {i.title()}" for i in ingredients[:20])
             + "\n\n¿Quieres modificar algo?"
         )
 
@@ -517,22 +759,7 @@ def _fallback_chat_message(
             "updated_constraints": updated,
         }
 
-    # ─── 8. Último recurso: analizar las palabras clave ──
-    # Si el usuario menciona "compra", "semana", "básico", etc.
-    general_keywords = {
-        "compra": "compra semanal", "semana": "compra semanal", "semanal": "compra semanal",
-        "básico": "compra basica", "basico": "compra basica", "básica": "compra basica",
-    }
-    for kw, recipe_key in general_keywords.items():
-        if kw in text:
-            ingr = _INGREDIENT_KNOWLEDGE.get(recipe_key, [])
-            if ingr:
-                return {
-                    "mercadin_message": f"¡Vamos con la {recipe_key}! 🛒 He preparado los productos esenciales.",
-                    "action": "add_to_cart",
-                    "delta": {"add_queries": list(ingr), "remove_queries": [], "modify": []},
-                    "updated_constraints": {"meal_type": "semanal", "notes": recipe_key},
-                }
+    # ─── 7. Último recurso: no se reconoció nada ─────────
 
     # Conversación general - pero con contexto útil
     return {
@@ -549,6 +776,90 @@ def _fallback_chat_message(
         "delta": {"add_queries": [], "remove_queries": [], "modify": []},
         "updated_constraints": {},
     }
+
+
+# ══════════════════════════════════════════════════════════════
+#  HELPER: Catálogo para prompt del LLM
+# ══════════════════════════════════════════════════════════════
+
+# Vocabulario de alimentos para extraer keywords del mensaje del usuario
+_FOOD_KEYWORDS_SET = {
+    "arroz", "pollo", "carne", "pescado", "verdura", "fruta", "leche",
+    "huevo", "huevos", "pan", "queso", "tomate", "lechuga", "patata",
+    "patatas", "cebolla", "atún", "aceite", "pasta", "jamón", "yogur",
+    "cereales", "salmón", "salmon", "merluza", "gambas", "pechuga",
+    "manzana", "plátano", "naranja", "cerveza", "agua", "zumo", "café",
+    "chocolate", "galletas", "chorizo", "bacon", "champiñones", "espinacas",
+    "brócoli", "zanahoria", "zanahorias", "calabacín", "pimiento", "pimientos",
+    "ajo", "pepino", "lentejas", "garbanzos", "alubias", "fideos",
+    "sal", "azúcar", "vinagre", "macarrones", "espaguetis", "mantequilla",
+    "nata", "harina", "pimienta", "orégano", "azafrán", "pimentón",
+    "conejo", "ternera", "cerdo", "cordero", "pavo", "salmón",
+    "bacalao", "sardinas", "langostinos", "costillas", "hamburguesa",
+    "pizza", "tortilla", "paella", "gazpacho", "ensalada", "lentejas",
+    "macarrones", "espaguetis", "carbonara", "lasaña", "risotto",
+}
+
+
+def _build_catalog_for_prompt(user_message: str, excluded_allergens: list[str] = None) -> str:
+    """
+    Pre-busca productos relevantes en la BD basándose en el mensaje del usuario.
+    Devuelve un texto formateado con los productos disponibles para incluir en el prompt del LLM.
+    """
+    from .database import search_products_smart, get_safe_products
+
+    text = user_message.lower().strip()
+    keywords = []
+
+    # 1. Extraer keywords de comida del mensaje
+    for word in text.split():
+        clean = word.strip(".,;:!?¿¡\"'")
+        if clean in _FOOD_KEYWORDS_SET:
+            keywords.append(clean)
+
+    # 2. Buscar platos conocidos y extraer sus ingredientes como keywords
+    for recipe in _RECIPE_DB:
+        for name in recipe["names"]:
+            if name in text:
+                for ingr in recipe["ingredients"]:
+                    # Usar la primera palabra significativa del ingrediente
+                    first_word = ingr.split()[0].lower()
+                    if first_word not in keywords and len(first_word) >= 3:
+                        keywords.append(ingr)
+                break
+
+    # 3. Buscar en _INGREDIENT_KNOWLEDGE
+    for keyword, ingr_list in _INGREDIENT_KNOWLEDGE.items():
+        if keyword in text:
+            for ingr in ingr_list:
+                if ingr not in keywords:
+                    keywords.append(ingr)
+            break
+
+    if not keywords:
+        return "No se han encontrado productos relevantes. El usuario puede estar haciendo una consulta general."
+
+    # 4. Buscar productos en la BD para cada keyword
+    seen_ids = set()
+    catalog_lines = []
+    for kw in keywords[:15]:  # Máx 15 keywords para no saturar el prompt
+        results = search_products_smart(kw, limit=3)
+        for p in results:
+            if p["id"] not in seen_ids:
+                # Filtrar alérgenos si aplica
+                if excluded_allergens:
+                    product_allergens = set(p.get("allergens", []))
+                    if product_allergens.intersection(excluded_allergens):
+                        continue
+                seen_ids.add(p["id"])
+                catalog_lines.append(
+                    f"- {p['name']} ({p['brand']}) — {p['price']}€ | {p.get('subcategory', '')}"
+                )
+
+    if not catalog_lines:
+        return "No se encontraron productos que coincidan con la búsqueda."
+
+    return "\n".join(catalog_lines[:50])  # Máx 50 productos en el catálogo
 
 
 # ══════════════════════════════════════════════════════════════

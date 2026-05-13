@@ -238,10 +238,11 @@ def _demo_logistics(state: CartState) -> CartState:
 
 def _demo_financial(state: CartState) -> CartState:
     """
-    Agente Financiero:
+    Agente Financiero — MAXIMIZADOR DE PRESUPUESTO:
       1. Asegura que los ingredientes esenciales caben en el presupuesto.
-      2. Si queda margen, añade complementos lógicos (nunca relleno aleatorio).
-      3. Si no hay margen suficiente, recorta los menos esenciales.
+      2. Si queda margen, LLENA activamente con complementos inteligentes.
+      3. Escala a las personas del hogar (más cantidad si más gente).
+      4. Si no hay margen suficiente, recorta los menos esenciales.
     """
     # ── Fase 1: Calcular el coste de la receta base ──────
     base_total = sum(p["price"] for p in state.selected_products)
@@ -268,29 +269,48 @@ def _demo_financial(state: CartState) -> CartState:
                 final_cart.append(product)
                 running_total += product["price"]
 
-    # ── Fase 2: Complementos lógicos si hay margen ───────
+    # ── Fase 2: Maximizar presupuesto con complementos inteligentes ──
     remaining = state.budget - running_total
     added_complements = []
+    cart_ids = {p["id"] for p in final_cart}
+    cart_names_lower = " ".join(p["name"].lower() for p in final_cart)
+    cart_subs = {p.get("subcategory", "").lower() for p in final_cart}
 
     if remaining >= 0.50:
-        # Complementos según tipo de comida. Solo añadimos lo que tenga sentido.
-        complements = _get_smart_complements(state.meal_type, state.selected_products)
+        # Obtener complementos priorizados por tipo de comida y personas
+        complement_queries = _get_smart_complements(
+            state.meal_type, final_cart, state.people, state.diet
+        )
 
-        for complement_query in complements:
+        for complement_query in complement_queries:
             if remaining < 0.50:
                 break
-            # Buscar el producto más barato que coincida
-            best = None
+
+            cq_lower = complement_query.lower()
+
+            # Evitar duplicados por nombre
+            if cq_lower in cart_names_lower:
+                continue
+
+            # Buscar el mejor producto que coincida (mejor relación calidad/precio)
+            candidates = []
             for p in state.available_products:
-                if p["id"] in {x["id"] for x in final_cart}:
+                if p["id"] in cart_ids:
                     continue
                 name_l = p["name"].lower()
-                if complement_query.lower() in name_l:
-                    if best is None or p["price"] < best["price"]:
-                        best = p
+                if cq_lower in name_l and p["price"] <= remaining:
+                    # Score: priorizar valor nutricional por euro
+                    protein_per_euro = (p.get("protein_100g", 0) or 0) / max(p["price"], 0.01)
+                    brand_bonus = 5 if p["brand"] == state.brand_preference else 0
+                    score = protein_per_euro + brand_bonus
+                    candidates.append((score, p["price"], p))
 
-            if best and best["price"] <= remaining:
+            if candidates:
+                candidates.sort(key=lambda x: (-x[0], x[1]))
+                best = candidates[0][2]
                 final_cart.append(best)
+                cart_ids.add(best["id"])
+                cart_names_lower += " " + best["name"].lower()
                 remaining -= best["price"]
                 running_total += best["price"]
                 added_complements.append(best["name"])
@@ -298,37 +318,188 @@ def _demo_financial(state: CartState) -> CartState:
     state.selected_products = final_cart
     state.total = round(running_total, 2)
 
-    log = f"💰 Financiero: Cesta final {state.total}€ / {state.budget}€ presupuesto."
+    usage_pct = (state.total / state.budget * 100) if state.budget > 0 else 0
+    log = f"💰 Financiero: Cesta {state.total}€ / {state.budget}€ ({usage_pct:.0f}% aprovechado)."
     if added_complements:
-        log += f" Complementos añadidos: {', '.join(added_complements)}."
-    log += f" Ahorro: {state.budget - state.total:.2f}€."
+        log += f" Complementos: {', '.join(added_complements)}."
+    if remaining > 0.50:
+        log += f" Margen restante: {remaining:.2f}€."
 
     state.agent_logs.append(log)
     return state
 
 
-def _get_smart_complements(meal_type: str, current_products: list[dict]) -> list[str]:
+def _get_smart_complements(
+    meal_type: str,
+    current_products: list[dict],
+    people: int = 2,
+    diet: str = "equilibrado",
+) -> list[str]:
     """
-    Devuelve una lista de complementos lógicos según el tipo de comida,
-    excluyendo categorías ya presentes en la cesta.
+    Devuelve una lista EXTENSA y priorizada de complementos lógicos
+    según el tipo de comida, personas y dieta.
+    Diseñado para maximizar el uso del presupuesto.
     """
+    current_names = " ".join(p["name"].lower() for p in current_products)
     current_cats = {p.get("category", "").lower() for p in current_products}
     current_subs = {p.get("subcategory", "").lower() for p in current_products}
 
-    # Complementos por tipo de comida (solo si no están ya en la cesta)
     complements = []
 
-    if meal_type in ("comida", "cena"):
-        if "pan" not in current_subs and "pan de molde" not in current_subs:
-            complements.append("barra de pan")
-        if "agua" not in " ".join(p["name"].lower() for p in current_products):
-            complements.append("agua mineral")
+    # ─── Complementos universales (siempre útiles) ───────
+    universal = [
+        "agua mineral", "aceite de oliva", "sal",
+    ]
+    for u in universal:
+        if u not in current_names:
+            complements.append(u)
+
+    # ─── Complementos por tipo de comida ─────────────────
+    if meal_type in ("comida", "cena", "general", "semanal"):
+        meal_complements = [
+            # Básicos de cocina
+            "cebolla", "ajo", "tomate", "pimiento",
+            # Pan
+            "barra de pan", "pan de molde",
+            # Proteínas adicionales si quedan pocas
+            "huevos",
+            # Guarniciones
+            "patatas", "arroz", "lechuga",
+            # Frutas (postre natural)
+            "manzana", "plátano", "naranja",
+            # Bebidas
+            "zumo de naranja", "cerveza",
+            # Conservas útiles
+            "tomate frito", "atún",
+            # Lácteos básicos
+            "leche", "yogur",
+        ]
+        complements.extend(meal_complements)
 
     elif meal_type == "desayuno":
-        if "zumo" not in " ".join(p["name"].lower() for p in current_products):
-            complements.append("zumo de naranja")
+        breakfast_complements = [
+            "zumo de naranja", "cereales", "leche",
+            "mermelada", "mantequilla", "yogur",
+            "café", "galletas", "fruta",
+            "pan de molde", "tostadas",
+        ]
+        complements.extend(breakfast_complements)
 
-    return complements
+    # ─── Complementos por personas (escalar) ─────────────
+    if people >= 4:
+        # Para familias grandes, más básicos
+        bulk_complements = [
+            "arroz", "pasta", "patatas",
+            "leche", "pan de molde", "aceite de oliva",
+        ]
+        for bc in bulk_complements:
+            if bc not in complements:
+                complements.append(bc)
+
+    # ─── Complementos por dieta ──────────────────────────
+    if "proteína" in diet.lower() or "proteina" in diet.lower():
+        protein_complements = [
+            "pechuga de pollo", "atún", "huevos",
+            "yogur", "leche", "queso",
+        ]
+        # Poner al principio (más prioridad)
+        complements = protein_complements + complements
+
+    # Eliminar duplicados manteniendo orden
+    seen = set()
+    unique = []
+    for c in complements:
+        c_lower = c.lower()
+        if c_lower not in seen and c_lower not in current_names:
+            seen.add(c_lower)
+            unique.append(c)
+
+    return unique
+
+
+def _demo_financial_conservative(state: CartState) -> CartState:
+    """
+    Agente Financiero para flujo conversacional delta.
+    1. Recorta si excede presupuesto.
+    2. Si queda margen significativo (>30% del presupuesto), sugiere
+       complementos relevantes para maximizar el valor de la compra.
+    """
+    base_total = sum(p["price"] for p in state.selected_products)
+
+    if base_total > state.budget:
+        # No cabe todo — recortar los menos esenciales
+        def essentiality(p):
+            name_l = p["name"].lower()
+            for i, q in enumerate(state.search_queries):
+                if q.lower() in name_l:
+                    return i
+            return 999
+
+        sorted_products = sorted(state.selected_products, key=lambda p: essentiality(p))
+        final_cart = []
+        running_total = 0.0
+        removed = []
+        for product in sorted_products:
+            if running_total + product["price"] <= state.budget:
+                final_cart.append(product)
+                running_total += product["price"]
+            else:
+                removed.append(product["name"])
+
+        state.selected_products = final_cart
+        state.total = round(running_total, 2)
+
+        log = f"💰 Financiero: Cesta ajustada a {state.total}€ / {state.budget}€."
+        if removed:
+            log += f" Eliminados por presupuesto: {', '.join(removed)}."
+        state.agent_logs.append(log)
+    else:
+        running_total = base_total
+
+        # Si queda más del 30% del presupuesto, intentar llenarlo
+        remaining = state.budget - running_total
+        usage_pct = (running_total / state.budget * 100) if state.budget > 0 else 100
+        added_complements = []
+
+        if remaining >= 2.0 and usage_pct < 70:
+            cart_ids = {p["id"] for p in state.selected_products}
+            cart_names_lower = " ".join(p["name"].lower() for p in state.selected_products)
+
+            complement_queries = _get_smart_complements(
+                state.meal_type, state.selected_products, state.people, state.diet
+            )
+
+            for cq in complement_queries:
+                if remaining < 0.50:
+                    break
+                cq_lower = cq.lower()
+                if cq_lower in cart_names_lower:
+                    continue
+
+                best = None
+                for p in state.available_products:
+                    if p["id"] in cart_ids:
+                        continue
+                    if cq_lower in p["name"].lower() and p["price"] <= remaining:
+                        if best is None or p["price"] < best["price"]:
+                            best = p
+
+                if best:
+                    state.selected_products.append(best)
+                    cart_ids.add(best["id"])
+                    cart_names_lower += " " + best["name"].lower()
+                    remaining -= best["price"]
+                    running_total += best["price"]
+                    added_complements.append(best["name"])
+
+        state.total = round(running_total, 2)
+        final_usage = (state.total / state.budget * 100) if state.budget > 0 else 100
+        log = f"💰 Financiero: Cesta {state.total}€ / {state.budget}€ ({final_usage:.0f}% aprovechado). ✅"
+        if added_complements:
+            log += f" Complementos añadidos: {', '.join(added_complements)}."
+        state.agent_logs.append(log)
+
+    return state
 
 
 def run_agents_demo(
@@ -580,8 +751,9 @@ def run_agents_delta(
     if state.search_queries:
         state = _demo_nutritionist(state)
 
-    # 3. Logístico y Financiero ajustan el carrito final
-    state = _demo_logistics(state)
-    state = _demo_financial(state)
+    # 3. Financiero conservador: solo recorta si excede presupuesto
+    #    NO ejecutamos Logístico (no sustituir productos sin permiso)
+    #    NO añadimos complementos no solicitados
+    state = _demo_financial_conservative(state)
 
     return state
