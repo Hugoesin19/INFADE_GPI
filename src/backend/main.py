@@ -92,6 +92,7 @@ class ChatStartResponse(BaseModel):
 class ChatMessageRequest(BaseModel):
     session_id: str
     message: str
+    ai_mode: str = "gemini"  # "gemini", "groq", "demo"
 
 
 class CartDelta(BaseModel):
@@ -110,6 +111,7 @@ class ChatMessageResponse(BaseModel):
     confirmed: bool
     agent_logs: list[str]
     demo_mode: bool
+    recipe_data: Optional[dict] = None
 
 
 class ChatConfirmRequest(BaseModel):
@@ -256,6 +258,7 @@ def chat_message(request: ChatMessageRequest):
         current_cart=current_cart,
         profile=profile,
         user_message=request.message,
+        ai_mode=request.ai_mode,
     )
 
     mercadin_msg = llm_result["mercadin_message"]
@@ -342,6 +345,7 @@ def chat_message(request: ChatMessageRequest):
         confirmed=confirmed,
         agent_logs=agent_logs,
         demo_mode=DEMO_MODE,
+        recipe_data=llm_result.get("recipe_data"),
     )
 
 
@@ -373,6 +377,86 @@ def chat_get_session(session_id: str):
     if not session:
         raise HTTPException(status_code=404, detail="Sesión no encontrada")
     return session
+
+
+@app.post("/api/recipe/download")
+def download_recipe(data: dict):
+    """Genera un HTML descargable con la receta y lista de ingredientes."""
+    import tempfile
+    from fastapi.responses import HTMLResponse
+
+    nombre = data.get("nombre", "Receta Mercadín")
+    receta = data.get("receta", "")
+    ingredientes = data.get("ingredientes", [])
+    personas = data.get("personas", 2)
+    planificacion = data.get("planificacion", None)
+
+    ingredients_html = "".join(f"<li>{i}</li>" for i in ingredientes)
+
+    recipe_section = ""
+    if receta:
+        steps = receta.replace(". ", ".\n").split("\n")
+        steps_html = "".join(f"<li>{s.strip()}</li>" for s in steps if s.strip())
+        recipe_section = f"""
+        <h2>📋 Instrucciones</h2>
+        <ol class="steps">{steps_html}</ol>
+        """
+
+    planning_section = ""
+    if planificacion and isinstance(planificacion, list):
+        rows = ""
+        for day in planificacion:
+            if isinstance(day, dict):
+                dia = day.get("dia", "")
+                comida = day.get("comida", "—")
+                cena = day.get("cena", "—")
+                rows += f"<tr><td><strong>{dia}</strong></td><td>{comida}</td><td>{cena}</td></tr>"
+        planning_section = f"""
+        <h2>📅 Plan Semanal</h2>
+        <table>
+            <thead><tr><th>Día</th><th>🍽️ Comida</th><th>🌙 Cena</th></tr></thead>
+            <tbody>{rows}</tbody>
+        </table>
+        """
+
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>{nombre} — Mercadín 🦔</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: 'Segoe UI', system-ui, sans-serif; color: #1e293b; padding: 40px; max-width: 800px; margin: auto; }}
+        h1 {{ color: #00a170; font-size: 28px; margin-bottom: 4px; }}
+        .subtitle {{ color: #64748b; margin-bottom: 24px; font-size: 14px; }}
+        h2 {{ color: #334155; margin: 24px 0 12px; font-size: 20px; }}
+        ul, ol {{ padding-left: 24px; }}
+        li {{ margin-bottom: 6px; line-height: 1.6; }}
+        ol.steps li {{ margin-bottom: 12px; }}
+        table {{ width: 100%; border-collapse: collapse; margin-top: 12px; }}
+        th, td {{ padding: 10px 14px; text-align: left; border: 1px solid #e2e8f0; }}
+        th {{ background: #f1f5f9; font-weight: 600; }}
+        .footer {{ margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e8f0; color: #94a3b8; font-size: 12px; text-align: center; }}
+        @media print {{ body {{ padding: 20px; }} }}
+    </style>
+</head>
+<body>
+    <h1>🦔 {nombre}</h1>
+    <p class="subtitle">Para {personas} personas — Generado por Mercadín</p>
+
+    <h2>🛒 Lista de la compra</h2>
+    <ul>{ingredients_html}</ul>
+
+    {recipe_section}
+    {planning_section}
+
+    <div class="footer">Generado por Mercadín — Tu asistente de compra inteligente de Mercadona</div>
+</body>
+</html>"""
+
+    return HTMLResponse(content=html, headers={
+        "Content-Disposition": f'attachment; filename="{nombre.replace(" ", "_")}.html"'
+    })
 
 
 # ══════════════════════════════════════════════════════════════

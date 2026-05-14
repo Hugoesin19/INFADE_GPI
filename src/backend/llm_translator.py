@@ -255,7 +255,7 @@ def _try_composite_recipe(text: str) -> tuple[str | None, list[str], str]:
     return None, [], ""
 
 
-def _extract_ingredients_with_llm(request_text: str, profile: dict | None = None) -> dict | None:
+def _extract_ingredients_with_llm(request_text: str, profile: dict | None = None, ai_mode: str = "gemini") -> dict | None:
     """
     Usa Gemini para entender CUALQUIER petición culinaria y devolver ingredientes.
     Maneja: recetas, compras semanales, dietas específicas, planificación.
@@ -263,7 +263,7 @@ def _extract_ingredients_with_llm(request_text: str, profile: dict | None = None
     Returns:
         dict con {dish_name, ingredients, meal_type} o None si falla.
     """
-    if DEMO_MODE:
+    if ai_mode == "demo":
         return None
 
     # Construir contexto del perfil
@@ -273,48 +273,89 @@ def _extract_ingredients_with_llm(request_text: str, profile: dict | None = None
     allergens = profile.get("allergens", [])
     allergens_text = ", ".join(allergens) if allergens else "ninguno"
 
+    try:
+        from .database import get_all_products
+        catalog_names = [p["name"] for p in get_all_products()]
+        catalog_str = ", ".join(catalog_names)
+    except Exception as e:
+        catalog_str = "catálogo no disponible, usa ingredientes comunes"
+
     _CHEF_PROMPT = f"""Eres un nutricionista-chef de Mercadona España. El usuario te pide algo relacionado con comida.
 Devuelve SOLO un JSON con esta estructura exacta:
 
-{{"nombre": "nombre del plato o plan", "tipo": "comida|cena|desayuno|semanal", "ingredientes": ["ingrediente1", "ingrediente2", ...]}}
+{{"nombre": "nombre del plato o plan", "tipo": "comida|cena|desayuno|merienda|semanal", "ingredientes": ["ingrediente1", "ingrediente2", ...], "receta": "Instrucciones paso a paso para elaborar el plato en casa", "planificacion": null}}
+
+Si el usuario pide una COMPRA SEMANAL o PLANIFICACIÓN, usa esta estructura:
+{{"nombre": "Plan semanal", "tipo": "semanal", "ingredientes": ["todos los ingredientes necesarios"], "receta": null, "planificacion": [{{"dia": "Lunes", "comida": "Nombre del plato", "cena": "Nombre del plato"}}, ...]}}
 
 Reglas:
-- Ingredientes INDIVIDUALES que se encuentren en Mercadona España
-- Si es una compra semanal o planificación, incluye ingredientes para varias comidas equilibradas (proteínas, carbohidratos, verduras, frutas, lácteos, básicos)
+- IMPORTANTE: Usa ÚNICA Y EXCLUSIVAMENTE nombres exactos que aparezcan en este CATÁLOGO: [{catalog_str}]
+- Para recetas: incluye TODOS los ingredientes necesarios sin excepción. No añadas ingredientes que no sean necesarios para el plato.
+- Para compra semanal: haz un planning de lunes a domingo con comida y cena, e incluye todos los ingredientes que se necesitarían.
 - Si menciona dieta (atleta, vegano, etc.), adapta los ingredientes a esa dieta
 - Para {people} personas
 - Alérgenos a EXCLUIR: {allergens_text}
 - Dieta del usuario: {diet}
 - Máximo 20 ingredientes para recetas, 30 para compra semanal
-- Nombres simples de supermercado (ej: "pechuga de pollo", no "suprema de ave")
+- En "receta" escribe instrucciones claras, paso a paso, con tiempos de cocción
 - Solo JSON, sin markdown, sin explicaciones
 
 Petición del usuario: "{request_text}"
 """
     try:
-        from google import genai
-        client = genai.Client(api_key=GEMINI_API_KEY)
-        
-        response = client.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=_CHEF_PROMPT,
-        )
-        raw = _clean_json_response(response.text.strip())
-        result = json.loads(raw)
+        if ai_mode == "groq":
+            import requests
+            from .config import GROQ_API_KEY
+            headers = {
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            data = {
+                "model": "llama-3.3-70b-versatile",
+                "messages": [
+                    {"role": "system", "content": _CHEF_PROMPT},
+                    {"role": "user", "content": request_text}
+                ],
+                "response_format": {"type": "json_object"},
+                "temperature": 0.2
+            }
+            res = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=data)
+            res.raise_for_status()
+            response_text = res.json()["choices"][0]["message"]["content"]
+            raw = _clean_json_response(response_text.strip())
+            result = json.loads(raw)
+        else: # gemini
+            from google import genai
+            client = genai.Client(api_key=GEMINI_API_KEY)
+            
+            response = client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=_CHEF_PROMPT,
+            )
+            raw = _clean_json_response(response.text.strip())
+            result = json.loads(raw)
         
         if isinstance(result, dict) and "ingredientes" in result:
             ingredients = [i.strip() for i in result["ingredientes"] if isinstance(i, str) and i.strip()]
             if ingredients:
                 dish_name = result.get("nombre", request_text)
                 meal_type = result.get("tipo", "comida")
+                recipe_text = result.get("receta", None)
+                planning = result.get("planificacion", None)
                 print(f"[LLM Chef] '{request_text}' → {dish_name} ({len(ingredients)} ingredientes)")
-                return {"dish_name": dish_name, "ingredients": ingredients, "meal_type": meal_type}
+                return {
+                    "dish_name": dish_name,
+                    "ingredients": ingredients,
+                    "meal_type": meal_type,
+                    "recipe": recipe_text,
+                    "planning": planning,
+                }
         
         # Fallback: si devolvió una lista simple en vez de dict
         if isinstance(result, list) and len(result) > 0:
             clean = [i.strip() for i in result if isinstance(i, str) and i.strip()]
             if clean:
-                return {"dish_name": request_text, "ingredients": clean, "meal_type": "comida"}
+                return {"dish_name": request_text, "ingredients": clean, "meal_type": "comida", "recipe": None, "planning": None}
         
         return None
     except Exception as e:
@@ -323,6 +364,15 @@ Petición del usuario: "{request_text}"
             print(f"[LLM Chef] Rate-limited para '{request_text}'. Usando fallback local.")
         else:
             print(f"[LLM Chef] Error para '{request_text}': {e}")
+        
+        # Auto-fallback: si Gemini falla, intentar con Groq
+        if ai_mode == "gemini":
+            print(f"[LLM Chef] Auto-fallback a Groq para '{request_text}'...")
+            try:
+                return _extract_ingredients_with_llm(request_text, profile, "groq")
+            except Exception as e2:
+                print(f"[LLM Chef] Groq fallback también falló: {e2}")
+        
         return None
 
 
@@ -405,13 +455,14 @@ def translate_chat_message(
     current_cart: list[dict],
     profile: dict,
     user_message: str,
+    ai_mode: str = "gemini",
 ) -> dict:
     """
     Procesa un mensaje del usuario en el contexto conversacional.
     Usa SIEMPRE el motor determinista para respuesta instantánea.
     El LLM se reserva para el saludo proactivo (donde la latencia es aceptable).
     """
-    return _fallback_chat_message(history, current_cart, profile, user_message)
+    return _fallback_chat_message(history, current_cart, profile, user_message, ai_mode)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -466,6 +517,18 @@ _INGREDIENT_KNOWLEDGE = {
     "compra semanal": ["leche", "pan de molde", "huevos", "arroz redondo", "pasta", "tomate frito", "aceite de oliva", "pollo", "lechuga", "tomates pera", "patatas selección", "cebolla", "fruta"],
     "compra basica": ["leche", "pan de molde", "huevos", "arroz redondo", "aceite de oliva", "tomate frito", "sal"],
     "barbacoa": ["costillas de cerdo", "hamburguesas de vacuno", "pan de hamburguesa", "pimientos", "cebolla", "aceite de oliva", "kétchup", "cerveza"],
+    
+    # Conceptos abstractos / intenciones
+    "dulce saludable": ["yogur proteínas hacendado", "chocolate negro 72% hacendado", "fresas", "almendras tostadas hacendado"],
+    "algo dulce": ["chocolate con leche hacendado", "galletas de chocolate hacendado", "flan de huevo hacendado"],
+    "dulce": ["chocolate negro 72% hacendado", "fresas", "yogur natural hacendado"],
+    "saludable": ["manzanas golden", "brócoli", "salmón", "arroz integral hacendado", "yogur natural hacendado"],
+    "merendar": ["pan de molde integral hacendado", "pavo en lonchas hacendado", "zumo de naranja", "yogur natural hacendado", "plátanos de canarias"],
+    "merienda": ["pan de molde integral hacendado", "pavo en lonchas hacendado", "zumo de naranja", "yogur natural hacendado", "plátanos de canarias"],
+    "postre": ["flan de huevo hacendado", "natillas de vainilla hacendado", "yogur de fresa hacendado", "fresas"],
+    "sano": ["pechuga de pollo fileteada", "arroz integral hacendado", "brócoli", "manzanas golden", "almendras tostadas hacendado"],
+    "fitness": ["pechuga de pollo fileteada", "arroz integral hacendado", "brócoli", "yogur proteínas hacendado", "atún claro en aceite de oliva hacendado"],
+    "vegano": ["tofu", "garbanzos hacendado", "bebida de avena hacendado", "lentejas pardinas hacendado", "espinacas frescas hacendado"],
 }
 
 # Comidas que implican proteína específica
@@ -483,6 +546,7 @@ def _fallback_chat_message(
     current_cart: list[dict],
     profile: dict,
     user_message: str,
+    ai_mode: str = "gemini",
 ) -> dict:
     """
     Fallback INTELIGENTE cuando no hay LLM disponible.
@@ -581,18 +645,45 @@ def _fallback_chat_message(
             "updated_constraints": {"allergens": detected_allergens},
         }
 
-    # ─── 2. Detectar eliminación ─────────────────────────
-    remove_patterns = [r"quita\s+(.*)", r"elimina\s+(.*)", r"sin\s+(.*)", r"no quiero\s+(.*)"]
+    # ─── 2a. Detectar VACIAR CARRITO / ELIMINAR TODO ──────
+    clear_patterns = [
+        r"vac[ií]a(?:r)?\s+(?:el\s+)?carrito",
+        r"elimina(?:r)?\s+todo",
+        r"quita(?:r)?\s+todo",
+        r"borra(?:r)?\s+(?:el\s+)?carrito",
+        r"limpia(?:r)?\s+(?:el\s+)?carrito",
+        r"quiero\s+empezar\s+de\s+(?:cero|nuevo)",
+        r"resetea(?:r)?\s+(?:el\s+)?carrito",
+    ]
+    for pattern in clear_patterns:
+        if re.search(pattern, text):
+            return {
+                "mercadin_message": "¡Hecho! 🧹 He vaciado el carrito por completo. ¿En qué puedo ayudarte ahora?",
+                "action": "clear_cart",
+                "delta": {"add_queries": [], "remove_queries": [], "modify": []},
+                "updated_constraints": {},
+            }
+
+    # ─── 2b. Detectar eliminación de producto concreto ───
+    remove_patterns = [
+        r"quita(?:r)?\s+(.*)",
+        r"elimina(?:r)?\s+(.*)",
+        r"no quiero\s+(.*)",
+        r"quiero quitar\s+(.*)",
+    ]
     for pattern in remove_patterns:
         m = re.search(pattern, text)
         if m:
             item = m.group(1).strip()
-            return {
-                "mercadin_message": f"Entendido, quito {item} del carrito 🦔",
-                "action": "remove_from_cart",
-                "delta": {"add_queries": [], "remove_queries": [item], "modify": []},
-                "updated_constraints": {},
-            }
+            # Limpiar artículos del item
+            item = re.sub(r'^(el|la|los|las|un|una)\s+', '', item)
+            if item:
+                return {
+                    "mercadin_message": f"Entendido, quito **{item}** del carrito 🦔",
+                    "action": "remove_from_cart",
+                    "delta": {"add_queries": [], "remove_queries": [item], "modify": []},
+                    "updated_constraints": {},
+                }
 
     # ─── 3. Detectar sustitución ─────────────────────────
     # Patrones: (grupo1=lo que se quita, grupo2=lo que se pone)
@@ -633,9 +724,18 @@ def _fallback_chat_message(
     ingredients = []
     dish_name = None
     meal_type_hint = None
+    llm_result = None
 
     # ── 5a. IA COMO FUENTE PRIMARIA ──
-    # Limpiar el texto para extraer la petición culinaria
+    # Enviar el texto COMPLETO al LLM — tiene todo el contexto del catálogo
+    if ai_mode != "demo" and len(text) >= 3:
+        llm_result = _extract_ingredients_with_llm(text, profile, ai_mode)
+        if llm_result:
+            ingredients = llm_result["ingredients"]
+            dish_name = llm_result["dish_name"]
+            meal_type_hint = llm_result.get("meal_type", "comida")
+
+    # Limpiar el texto para los fallbacks locales
     dish_text = text
     for strip_pattern in [
         r"(?:quiero|necesito|ponme|hazme|prepara|dame)\s+(?:hacer\s+)?(?:una?\s+)?",
@@ -644,13 +744,6 @@ def _fallback_chat_message(
         r"\s*(?:por\s+favor)",
     ]:
         dish_text = re.sub(strip_pattern, "", dish_text).strip()
-
-    if len(dish_text) >= 3:
-        llm_result = _extract_ingredients_with_llm(dish_text, profile)
-        if llm_result:
-            ingredients = llm_result["ingredients"]
-            dish_name = llm_result["dish_name"]
-            meal_type_hint = llm_result.get("meal_type", "comida")
 
     # ── 5b. Buscar en _RECIPE_DB (fallback local, matches exactos) ──
     if not ingredients:
@@ -703,9 +796,10 @@ def _fallback_chat_message(
 
     # ── 5e. Fallback local: _INGREDIENT_KNOWLEDGE ──
     if not ingredients:
+        text_for_search = re.sub(r'\s+', ' ', text.replace("pero", " ").replace("y", " ").replace("para", " ")).strip()
         best_match_score = 0
         for keyword, ingr_list in _INGREDIENT_KNOWLEDGE.items():
-            if keyword in text:
+            if keyword in text_for_search:
                 score = len(keyword)
                 if " " in keyword:
                     score += 50
@@ -724,7 +818,7 @@ def _fallback_chat_message(
             "manzana", "plátano", "naranja", "cerveza", "agua", "zumo", "café",
             "chocolate", "galletas", "chorizo", "bacon", "champiñones", "espinacas",
             "brócoli", "zanahoria", "zanahorias", "calabacín", "pimiento", "pimientos",
-            "ajo", "pepino", "lentejas", "garbanzos", "alubias", "fideos",
+            "ajo", "pepino", "lentejas", "garbanzos", "alubias", "fideos", "tofu", "avena",
         }
         found_foods = []
         for word in text.split():
@@ -732,8 +826,8 @@ def _fallback_chat_message(
             if clean_w in _FOOD_VOCAB:
                 found_foods.append(clean_w)
         if found_foods:
-            ingredients = found_foods
-            dish_name = "ingredientes"
+                ingredients = found_foods
+                dish_name = "ingredientes"
 
     # ─── 6. Si encontramos algo, añadir al carrito ───────
     if ingredients:
@@ -746,19 +840,65 @@ def _fallback_chat_message(
 
         name = dish_name or "lo que me pides"
         people_text = f" para {detected_people} personas" if detected_people else ""
+        
+        # Build recipe/planning sections if the LLM provided them
+        recipe_text = ""
+        planning_text = ""
+        recipe_data = None
+        
+        if llm_result is not None:
+            if llm_result.get("recipe"):
+                recipe_data = {
+                    "nombre": llm_result["dish_name"],
+                    "receta": llm_result["recipe"],
+                    "ingredientes": [i.title() for i in ingredients],
+                    "personas": detected_people or profile.get("people", 2),
+                }
+                recipe_text = f"\n\n📋 **Receta:**\n{llm_result['recipe']}"
+            
+            if llm_result.get("planning"):
+                planning_lines = []
+                for day in llm_result["planning"]:
+                    if isinstance(day, dict):
+                        dia = day.get("dia", "")
+                        comida = day.get("comida", "—")
+                        cena = day.get("cena", "—")
+                        planning_lines.append(f"  **{dia}**: 🍽️ {comida} | 🌙 {cena}")
+                if planning_lines:
+                    planning_text = "\n\n📅 **Plan semanal:**\n" + "\n".join(planning_lines)
+                    recipe_data = {
+                        "nombre": llm_result["dish_name"],
+                        "planificacion": llm_result["planning"],
+                        "ingredientes": [i.title() for i in ingredients],
+                        "personas": detected_people or profile.get("people", 2),
+                    }
+
+        # Si no hay recipe_data del LLM, generar uno básico con la lista de la compra
+        if recipe_data is None and dish_name and dish_name != "ingredientes":
+            recipe_data = {
+                "nombre": name.title(),
+                "ingredientes": [i.title() for i in ingredients],
+                "personas": detected_people or profile.get("people", 2),
+            }
+
         msg = (
             f"¡**{name.title()}**{people_text}! Buena elección 👨‍🍳\n\n"
             f"He preparado estos ingredientes:\n"
-            + "\n".join(f"• {i.title()}" for i in ingredients[:20])
+            + "\n".join(f"• {i.title()}" for i in ingredients[:30])
+            + recipe_text
+            + planning_text
             + "\n\n¿Quieres modificar algo?"
         )
 
-        return {
+        result = {
             "mercadin_message": msg,
             "action": "add_to_cart",
             "delta": {"add_queries": ingredients, "remove_queries": [], "modify": []},
             "updated_constraints": updated,
         }
+        if recipe_data:
+            result["recipe_data"] = recipe_data
+        return result
 
     # ─── 7. Último recurso: no se reconoció nada ─────────
 

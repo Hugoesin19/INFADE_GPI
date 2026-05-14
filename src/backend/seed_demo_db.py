@@ -251,6 +251,23 @@ PRODUCTS = [
     ("Cilantro fresco", "Hacendado", "Fruta y verdura", "Verduras", 0.85, 0.03, "kg", "Envase", [], 23, 2.1, 3.7, 0.5),
     ("Perejil fresco", "Hacendado", "Fruta y verdura", "Verduras", 0.79, 0.03, "kg", "Envase", [], 36, 3.0, 6.0, 0.8),
     ("Albahaca fresca", "Hacendado", "Fruta y verdura", "Verduras", 0.99, 0.03, "kg", "Envase", [], 23, 3.2, 2.7, 0.6),
+
+    # ─── PRODUCTOS SALUDABLES / FITNESS / NUEVOS ──────────
+    ("Tofu firme", "Hacendado", "Frescos", "Alternativas vegetales", 2.25, 0.4, "kg", "Envase", ["soja"], 135, 14.0, 1.5, 8.0),
+    ("Seitán", "Hacendado", "Frescos", "Alternativas vegetales", 2.50, 0.3, "kg", "Envase", ["gluten", "soja"], 120, 24.0, 4.0, 1.5),
+    ("Tomates cherry", "Hacendado", "Fruta y verdura", "Verduras", 1.45, 0.5, "kg", "Tarrina", [], 18, 0.9, 3.5, 0.2),
+    ("Nueces peladas", "Hacendado", "Aperitivos", "Frutos secos", 2.85, 0.2, "kg", "Bolsa", ["frutos_secos"], 654, 15.0, 13.0, 65.0),
+    ("Crema de cacahuete 100%", "Hacendado", "Azúcar, caramelos y chocolate", "Cremas untables", 2.95, 0.5, "kg", "Tarro", ["frutos_secos"], 618, 30.0, 12.0, 50.0),
+    ("Tortitas de arroz", "Hacendado", "Cereales y galletas", "Dietéticos", 1.15, 0.13, "kg", "Paquete", [], 385, 8.0, 81.0, 2.5),
+    ("Edamame congelado", "Hacendado", "Congelados", "Verduras congeladas", 1.65, 0.5, "kg", "Bolsa", ["soja"], 121, 11.0, 9.0, 5.0),
+    ("Arándanos frescos", "Hacendado", "Fruta y verdura", "Frutas", 2.25, 0.2, "kg", "Tarrina", [], 57, 0.7, 14.0, 0.3),
+    ("Hummus de garbanzo", "Hacendado", "Charcutería y quesos", "Platos preparados", 1.35, 0.24, "kg", "Tarrina", ["sésamo"], 300, 7.5, 12.0, 24.0),
+    ("Guacamole fresco", "Hacendado", "Charcutería y quesos", "Platos preparados", 1.75, 0.2, "kg", "Tarrina", [], 160, 2.0, 8.0, 14.0),
+    ("Queso fresco batido desnatado", "Hacendado", "Postres y yogures", "Yogures", 1.45, 0.5, "kg", "Tarrina", ["lactosa"], 48, 8.0, 3.5, 0.1),
+    ("Mix de frutos secos natural", "Hacendado", "Aperitivos", "Frutos secos", 2.75, 0.2, "kg", "Bolsa", ["frutos_secos"], 620, 18.0, 15.0, 55.0),
+    ("Semillas de chía", "Hacendado", "Aperitivos", "Dietéticos", 1.65, 0.15, "kg", "Bolsa", [], 486, 16.0, 42.0, 30.0),
+    ("Kéfir natural", "Hacendado", "Postres y yogures", "Yogures", 1.35, 0.5, "kg", "Botella", ["lactosa"], 45, 3.3, 4.0, 1.5),
+    ("Quinoa", "Hacendado", "Arroz, legumbres y pasta", "Arroces", 2.45, 0.5, "kg", "Paquete", [], 368, 14.0, 64.0, 6.0),
 ]
 
 

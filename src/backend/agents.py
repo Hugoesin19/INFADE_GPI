@@ -54,7 +54,7 @@ def _demo_nutritionist(state: CartState) -> CartState:
             s = ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
             s = s.lower()
             s = re.sub(r'\b(el|la|los|las|un|una|unos|unas|mi|mis)\b', '', s)
-            return s.strip()
+            return re.sub(r'\s+', ' ', s).strip()
 
         candidates = []
         kw = normalize_str(keyword)
@@ -66,26 +66,37 @@ def _demo_nutritionist(state: CartState) -> CartState:
 
             name_l = normalize_str(p["name"])
             sub_l = normalize_str(p.get("subcategory", ""))
+            name_words = set(name_l.split())
 
-            # Verificar si el producto tiene relación con el keyword
-            # Se busca en nombre y subcategoría
             match = False
             score = 0
 
-            name_words = set(name_l.split())
-            
-            # Coincidencia exacta o substring completo
-            if kw == name_l or f" {kw} " in f" {name_l} ":
+            # 1. Coincidencia exacta del nombre completo
+            if kw == name_l:
                 match = True
-                if name_l.startswith(kw):
-                    score += 100
-                else:
-                    score += 70
-            # Alguna de las palabras clave está en el nombre (como palabra exacta)
+                score = 500
+
+            # 2. El nombre empieza exactamente con el query
+            elif name_l.startswith(kw):
+                match = True
+                score = 300
+
+            # 3. TODAS las palabras del query están en el nombre
+            elif kw_words and len(kw_words) > 1 and kw_words.issubset(name_words):
+                match = True
+                score = 200 + (len(kw_words) * 20)
+
+            # 4. El query completo es un substring del nombre
+            elif kw in name_l:
+                match = True
+                score = 150
+
+            # 5. Alguna de las palabras clave está en el nombre (como palabra exacta)
             elif kw_words and any(w in name_words for w in kw_words if len(w) >= 3):
                 match = True
                 matching_words = sum(1 for w in kw_words if w in name_words and len(w) >= 3)
-                score += 40 + (matching_words * 15)
+                total_kw_words = max(len(kw_words), 1)
+                score = 40 + (matching_words * 15)
                 
                 # Gran bonus si comparten la primera palabra (el sustantivo principal)
                 kw_first = kw.split()[0] if kw.split() else ""
@@ -93,10 +104,10 @@ def _demo_nutritionist(state: CartState) -> CartState:
                 if kw_first == name_first and len(kw_first) >= 3:
                     score += 80
 
-            # Subcategoría contiene el keyword
+            # 6. Subcategoría contiene el keyword
             elif kw in sub_l:
                 match = True
-                score += 50
+                score = 30
 
             if not match:
                 continue
@@ -111,6 +122,11 @@ def _demo_nutritionist(state: CartState) -> CartState:
 
             # Bonus menor precio (priorizar economía)
             score += max(0, 10 - int(p["price"]))
+
+            # Penalizar nombres mucho más largos que el query (menos relevante)
+            len_ratio = len(name_l) / max(len(kw), 1)
+            if len_ratio > 4:
+                score -= 10
 
             candidates.append((score, p["price"], p))
 
@@ -673,6 +689,9 @@ def run_agents_llm(
     if state.total == 0:
         state.total = round(sum(p["price"] for p in state.selected_products), 2)
 
+    # 4. Supervisor
+    state = _demo_supervisor(state)
+
     return state
 
 
@@ -775,9 +794,61 @@ def run_agents_delta(
     if state.search_queries:
         state = _demo_nutritionist(state)
 
-    # 3. Financiero conservador: solo recorta si excede presupuesto
-    #    NO ejecutamos Logístico (no sustituir productos sin permiso)
-    #    NO añadimos complementos no solicitados
-    state = _demo_financial_conservative(state, add_complements=False)
+    # 3. Financiero: NO recortar ingredientes de receta.
+    #    El usuario pidió estos productos específicamente; cortarlos rompe la receta.
+    #    Solo advertimos si se excede el presupuesto.
+    total = sum(p["price"] for p in state.selected_products)
+    state.total = round(total, 2)
+    if total > state.budget:
+        state.agent_logs.append(
+            f"💰 Financiero: Cesta {state.total}€ supera el presupuesto de {state.budget}€. "
+            f"Todos los ingredientes de la receta se han mantenido."
+        )
+    else:
+        usage = (total / state.budget * 100) if state.budget > 0 else 100
+        state.agent_logs.append(
+            f"💰 Financiero: Cesta {state.total}€ / {state.budget}€ ({usage:.0f}% aprovechado). ✅"
+        )
 
+    # 4. Supervisor de Calidad: Verifica coherencia y audita la compra
+    state = _demo_supervisor(state)
+
+    return state
+
+
+def _demo_supervisor(state: CartState) -> CartState:
+    """
+    Agente Supervisor de Calidad.
+    Audita el carrito para asegurarse de que cumple estándares básicos:
+    - Sin productos duplicados absolutos.
+    - Presupuesto no rebasado gravemente.
+    - Genera un sello de calidad final.
+    """
+    if not state.selected_products:
+        return state
+
+    # 1. Eliminar duplicados exactos por seguridad
+    seen_ids = set()
+    dedup = []
+    for p in state.selected_products:
+        if p["id"] not in seen_ids:
+            seen_ids.add(p["id"])
+            dedup.append(p)
+    
+    dups_removed = len(state.selected_products) - len(dedup)
+    state.selected_products = dedup
+
+    # 2. Verificar estado del presupuesto
+    total = sum(p["price"] for p in state.selected_products)
+    state.total = round(total, 2)
+    
+    status_msg = "✅ Todo en orden."
+    if state.total > state.budget * 1.1:
+        status_msg = "⚠️ Presupuesto ligeramente excedido por falta de alternativas baratas."
+
+    log = f"👁️ Supervisor: Carrito auditado. {len(state.selected_products)} productos listos. {status_msg}"
+    if dups_removed > 0:
+        log += f" (Se han corregido {dups_removed} duplicados)."
+
+    state.agent_logs.append(log)
     return state

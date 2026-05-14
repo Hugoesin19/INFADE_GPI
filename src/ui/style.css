@@ -65,6 +65,14 @@ html, body {
 .app-header .logo { height: 40px; cursor: pointer; }
 .app-header .header-right { display: flex; align-items: center; gap: 12px; }
 
+.ai-mode-select {
+    padding: 6px 12px; border-radius: 20px; border: 1px solid var(--slate-200);
+    background: white; color: var(--slate-700); font-size: 13px; font-weight: 500;
+    cursor: pointer; outline: none; transition: all 0.2s;
+}
+.ai-mode-select:hover { border-color: var(--slate-300); }
+.ai-mode-select:focus { border-color: var(--merca); box-shadow: 0 0 0 2px rgba(0,161,112,0.1); }
+
 .ia-badge {
     display: flex; align-items: center; gap: 6px;
     padding: 4px 12px; border-radius: 20px;
@@ -144,6 +152,17 @@ html, body {
 .message-content p { margin-bottom: 6px; }
 .message-content p:last-child { margin-bottom: 0; }
 
+.message-bubble { max-width: 100%; }
+
+.recipe-download-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 12px; padding: 8px 16px; border-radius: 20px;
+    border: 1px solid var(--merca); background: var(--merca-light);
+    color: var(--merca-dark); font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+}
+.recipe-download-btn:hover { background: var(--merca); color: white; transform: scale(1.02); }
+
 /* Typing indicator */
 .typing-indicator {
     display: flex; gap: 10px; align-self: flex-start; max-width: 85%;
@@ -204,6 +223,16 @@ html, body {
 }
 .send-btn:hover { background: var(--merca-dark); transform: scale(1.05); }
 .send-btn:disabled { background: var(--slate-300); cursor: not-allowed; transform: none; }
+
+.voice-btn {
+    width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--slate-200);
+    background: white; color: var(--slate-500); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; flex-shrink: 0;
+}
+.voice-btn:hover { background: var(--slate-100); color: var(--merca); }
+.voice-btn.recording { background: #fee2e2; color: #ef4444; border-color: #fca5a5; animation: pulse 1.5s infinite; }
+.voice-btn:disabled { background: var(--slate-100); cursor: not-allowed; color: var(--slate-300); }
 
 /* ══════════════════════════════════════════════════════
    CART PANEL (RIGHT)
@@ -268,6 +297,14 @@ html, body {
 }
 .cart-item-brand { font-size: 11px; color: var(--merca); font-weight: 600; }
 .cart-item-price { font-size: 15px; font-weight: 700; color: var(--slate-900); flex-shrink: 0; }
+
+.cart-item-remove {
+    width: 28px; height: 28px; border-radius: 50%; border: 1px solid #fecaca;
+    background: #fef2f2; color: #ef4444; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+    font-weight: 700; transition: all 0.2s; margin-left: 8px; flex-shrink: 0;
+}
+.cart-item-remove:hover { background: #ef4444; color: white; transform: scale(1.1); border-color: #ef4444; }
 
 /* Cart summary (sticky bottom) */
 .cart-summary {

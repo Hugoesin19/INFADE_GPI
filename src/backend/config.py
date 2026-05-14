@@ -12,7 +12,7 @@ _project_root = Path(__file__).resolve().parent.parent.parent
 # ── API Keys ──────────────────────────────────────────────
 # Pega tu clave de Gemini entre las comillas:
 GEMINI_API_KEY = "AIzaSyCsX76xPfpgSCgZwDE1j-BJ3qpMNToT_rU"
-
+GROQ_API_KEY = "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"
 
 # ── Modos ─────────────────────────────────────────────────
 # Modo demo si no hay API key válida configurada
@@ -25,4 +25,4 @@ DB_PATH: str = os.getenv(
 )
 
 # ── Modelo Gemini ─────────────────────────────────────────
-GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
+GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
