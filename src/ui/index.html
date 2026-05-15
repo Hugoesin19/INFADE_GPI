@@ -212,6 +212,8 @@
         //  MAIN APP
         // ═══════════════════════════════════════════════
         const App = () => {
+            const [showSplash, setShowSplash] = useState(true);
+            const [splashFading, setSplashFading] = useState(false);
             const [messages, setMessages] = useState([]);
             const [cart, setCart] = useState([]);
             const [cartTotal, setCartTotal] = useState(0);
@@ -229,6 +231,16 @@
             const [highlightIds, setHighlightIds] = useState([]);
             const [mobileCartOpen, setMobileCartOpen] = useState(false);
             const [connectionError, setConnectionError] = useState(false);
+
+            // Mascot interaction state (must be outside conditional per React rules)
+            const [mascotTilt, setMascotTilt] = useState({ x: 0, y: 0 });
+            const [mascotHover, setMascotHover] = useState(false);
+            const [speechIdx, setSpeechIdx] = useState(0);
+
+            const handleEnterApp = () => {
+                setSplashFading(true);
+                setTimeout(() => setShowSplash(false), 600);
+            };
 
             const messagesEndRef = useRef(null);
             const inputRef = useRef(null);
@@ -439,11 +451,62 @@
                 }
             };
 
+            // ═══ Mascot speech bubble rotation ═══
+            const speeches = [
+                "¡Hola! Soy Mercadín 👋",
+                "¿Preparamos tu compra? 🛒",
+                "Tengo recetas increíbles 👨‍🍳",
+                "¡Entra y te ayudo! 🎉",
+            ];
+
+            useEffect(() => {
+                if (!showSplash) return;
+                const interval = setInterval(() => {
+                    setSpeechIdx(prev => (prev + 1) % 4);
+                }, 3000);
+                return () => clearInterval(interval);
+            }, [showSplash]);
+
+            // ═══ SPLASH SCREEN ═══
+            if (showSplash) {
+                return (
+                    <div className={`landing-page ${splashFading ? 'fading' : ''}`}>
+                        {/* Mascot overlay — bottom right */}
+                        <div className="mascot-overlay"
+                            onMouseEnter={() => setMascotHover(true)}
+                            onMouseLeave={() => setMascotHover(false)}>
+                            <div className="mascot-speech" key={speechIdx}>
+                                {speeches[speechIdx]}
+                            </div>
+                            <img
+                                src="assets/logo.png?v=4"
+                                alt="Mercadín"
+                                className={`mascot-img ${mascotHover ? 'excited' : ''}`}
+                            />
+                        </div>
+
+                        {/* CTA panel — right side */}
+                        <div className="landing-cta-panel">
+                            <h1 className="landing-title">
+                                Comienza tu compra<br/>
+                                <span className="landing-title-accent">inteligente</span>
+                            </h1>
+                            <p className="landing-desc">
+                                Dime qué quieres cocinar y te preparo el carrito perfecto.
+                            </p>
+                            <button className="landing-enter-btn" onClick={handleEnterApp}>
+                                ENTRA
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
             return (
                 <div className="app-container">
                     {/* ═══ HEADER ═══ */}
                     <header className="app-header">
-                        <img src="assets/logo.png" alt="Mercadín" className="logo" onClick={resetSession} title="Nueva conversación"/>
+                        <img src="assets/logo_s.png" alt="Mercadona Autopilot" className="logo" onClick={resetSession} title="Nueva conversación"/>
                         <div className="header-right">
                             <select className="ai-mode-select" value={aiMode} onChange={e => setAiMode(e.target.value)} title="Motor de IA">
                                 <option value="gemini">✨ Gemini IA</option>
