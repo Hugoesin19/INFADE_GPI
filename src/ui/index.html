@@ -1,15 +1,24 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mercadín 🦔</title>
-    <meta name="description" content="Mercadín, tu asistente de compras inteligente de Mercadona. Chat conversacional con carrito en vivo.">
+    <meta name="description"
+        content="Mercadín, tu asistente de compras inteligente de Mercadona. Chat conversacional con carrito en vivo.">
     <link rel="stylesheet" href="style.css">
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            corePlugins: { preflight: false }
+        }
+    </script>
 </head>
+
 <body>
     <div id="root"></div>
 
@@ -34,15 +43,17 @@
         ];
 
         function getCategoryEmoji(cat) {
-            const m = { carne:'🥩', 'marisco y pescado':'🐟', pescado:'🐟', 'fruta y verdura':'🥬',
-                'huevos, leche y mantequilla':'🥛', 'arroz, legumbres y pasta':'🍚',
-                'aceite, especias y salsas':'🫒', 'panadería y pastelería':'🍞',
-                'conservas, caldos y cremas':'🥫', 'postres y yogures':'🍨',
-                'cereales y galletas':'🥣', congelados:'🧊', 'charcutería y quesos':'🧀',
-                'cacao, café e infusiones':'☕', 'agua y refrescos':'🥤', zumos:'🧃',
-                bodega:'🍷', aperitivos:'🥜', 'azúcar, caramelos y chocolate':'🍫',
-                'pizzas y platos preparados':'🍕', bebé:'👶' };
-            return m[(cat||'').toLowerCase()] || '🛒';
+            const m = {
+                carne: '🥩', 'marisco y pescado': '🐟', pescado: '🐟', 'fruta y verdura': '🥬',
+                'huevos, leche y mantequilla': '🥛', 'arroz, legumbres y pasta': '🍚',
+                'aceite, especias y salsas': '🫒', 'panadería y pastelería': '🍞',
+                'conservas, caldos y cremas': '🥫', 'postres y yogures': '🍨',
+                'cereales y galletas': '🥣', congelados: '🧊', 'charcutería y quesos': '🧀',
+                'cacao, café e infusiones': '☕', 'agua y refrescos': '🥤', zumos: '🧃',
+                bodega: '🍷', aperitivos: '🥜', 'azúcar, caramelos y chocolate': '🍫',
+                'pizzas y platos preparados': '🍕', bebé: '👶'
+            };
+            return m[(cat || '').toLowerCase()] || '🛒';
         }
 
         function formatMessage(text) {
@@ -56,15 +67,15 @@
         //  PROFILE MODAL
         // ═══════════════════════════════════════════════
         const ProfileModal = ({ isOpen, onClose, profile, onSave }) => {
-            const [form, setForm] = useState({ name:'', people:2, allergens:[], diet:'equilibrado', monthly_budget:200, per_cart_budget:25, preferences:'', brand_preference:'Hacendado' });
+            const [form, setForm] = useState({ name: '', people: 2, allergens: [], diet: 'equilibrado', monthly_budget: 200, per_cart_budget: 25, preferences: '', brand_preference: 'Hacendado' });
             const [saving, setSaving] = useState(false);
 
             useEffect(() => {
                 if (profile && isOpen) setForm({
-                    name: profile.name||'', people: profile.people||2,
-                    allergens: profile.allergens||[], diet: profile.diet||'equilibrado',
-                    monthly_budget: profile.monthly_budget||200, per_cart_budget: profile.per_cart_budget||25,
-                    preferences: profile.preferences||'', brand_preference: profile.brand_preference||'Hacendado'
+                    name: profile.name || '', people: profile.people || 2,
+                    allergens: profile.allergens || [], diet: profile.diet || 'equilibrado',
+                    monthly_budget: profile.monthly_budget || 200, per_cart_budget: profile.per_cart_budget || 25,
+                    preferences: profile.preferences || '', brand_preference: profile.brand_preference || 'Hacendado'
                 });
             }, [profile, isOpen]);
 
@@ -72,75 +83,80 @@
                 setSaving(true);
                 try {
                     const res = await fetch(`${API_BASE}/api/profile`, {
-                        method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(form)
+                        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form)
                     });
                     if (res.ok) { const d = await res.json(); onSave(d); onClose(); }
-                } catch(e) { console.error(e); }
+                } catch (e) { console.error(e); }
                 finally { setSaving(false); }
             };
 
             if (!isOpen) return null;
             return (
-                <div className="modal-overlay" onClick={onClose}>
-                    <div className="modal-panel" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <div><h2>Mi Perfil</h2><p>Personaliza tu experiencia</p></div>
-                            <button className="modal-close" onClick={onClose}>✕</button>
-                        </div>
-                        <div className="modal-body">
+                <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-md z-50 flex items-center justify-center p-4 transition-all" onClick={onClose}>
+                    <div className="bg-white/80 backdrop-blur-3xl w-full max-w-lg rounded-[2rem] shadow-[0_40px_80px_rgba(0,0,0,0.15)] border border-white/60 flex flex-col max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="px-8 py-6 border-b border-white/40 flex justify-between items-center bg-white/30">
                             <div>
-                                <label className="form-label">🏠 Nombre del hogar</label>
-                                <input className="form-input" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Ej: Familia García"/>
+                                <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight">Mi Perfil</h2>
+                                <p className="text-sm text-slate-500 mt-1 font-medium">Personaliza tu experiencia de compra</p>
+                            </div>
+                            <button className="p-2.5 bg-white/50 hover:bg-white/80 backdrop-blur-md border border-white/40 rounded-full transition-all text-slate-500 hover:text-slate-800 shadow-sm" onClick={onClose}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+                            </button>
+                        </div>
+                        <div className="p-8 overflow-y-auto flex flex-col gap-7 font-sans">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2.5">🏠 Nombre del hogar</label>
+                                <input className="w-full px-5 py-3.5 rounded-2xl bg-white/60 backdrop-blur-sm border border-white/50 focus:bg-white focus:border-[#008f39]/50 focus:ring-4 focus:ring-[#008f39]/10 outline-none transition-all shadow-[0_8px_16px_rgba(0,0,0,0.03)] font-medium text-slate-800" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ej: Familia García" />
                             </div>
                             <div>
-                                <label className="form-label">👥 Personas</label>
-                                <div className="people-counter">
-                                    <button className="people-btn" onClick={()=>setForm({...form,people:Math.max(1,form.people-1)})}>−</button>
-                                    <span className="people-count">{form.people}</span>
-                                    <button className="people-btn" onClick={()=>setForm({...form,people:Math.min(20,form.people+1)})}>+</button>
+                                <label className="block text-sm font-bold text-slate-700 mb-2.5">👥 Personas</label>
+                                <div className="flex items-center gap-5 bg-white/50 backdrop-blur-sm p-2 rounded-2xl w-max border border-white/50 shadow-[0_8px_16px_rgba(0,0,0,0.03)]">
+                                    <button className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm font-extrabold text-slate-600 hover:text-[#008f39] hover:shadow-md transition-all active:scale-95" onClick={() => setForm({ ...form, people: Math.max(1, form.people - 1) })}>−</button>
+                                    <span className="w-8 text-center font-extrabold text-slate-800 text-xl">{form.people}</span>
+                                    <button className="w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm font-extrabold text-slate-600 hover:text-[#008f39] hover:shadow-md transition-all active:scale-95" onClick={() => setForm({ ...form, people: Math.min(20, form.people + 1) })}>+</button>
                                 </div>
                             </div>
                             <div>
-                                <label className="form-label">🚫 Alergias</label>
-                                <div className="allergen-grid">
+                                <label className="block text-sm font-bold text-slate-700 mb-2.5">🚫 Alergias</label>
+                                <div className="flex flex-wrap gap-2.5">
                                     {ALLERGEN_OPTIONS.map(o => (
-                                        <button key={o.value} className={`allergen-btn ${form.allergens.includes(o.value)?'active':''}`}
-                                            onClick={()=>setForm({...form, allergens: form.allergens.includes(o.value) ? form.allergens.filter(a=>a!==o.value) : [...form.allergens,o.value]})}>
-                                            <span>{o.emoji}</span>{o.label}
+                                        <button key={o.value} className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all border shadow-sm backdrop-blur-sm flex items-center gap-2 hover:-translate-y-0.5 ${form.allergens.includes(o.value) ? 'bg-red-500/10 border-red-500/30 text-red-700 shadow-[0_4px_12px_rgba(239,68,68,0.15)]' : 'bg-white/60 border-white/50 text-slate-600 hover:bg-white'}`}
+                                            onClick={() => setForm({ ...form, allergens: form.allergens.includes(o.value) ? form.allergens.filter(a => a !== o.value) : [...form.allergens, o.value] })}>
+                                            <span className="text-base">{o.emoji}</span>{o.label}
                                         </button>
                                     ))}
                                 </div>
                             </div>
                             <div>
-                                <label className="form-label">🥗 Dieta</label>
-                                <div className="diet-grid">
+                                <label className="block text-sm font-bold text-slate-700 mb-2.5">🥗 Dieta</label>
+                                <div className="flex flex-wrap gap-2.5">
                                     {DIET_OPTIONS.map(o => (
-                                        <button key={o.value} className={`diet-btn ${form.diet===o.value?'active':''}`}
-                                            onClick={()=>setForm({...form,diet:o.value})}>{o.label}</button>
+                                        <button key={o.value} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all border shadow-sm backdrop-blur-sm hover:-translate-y-0.5 ${form.diet === o.value ? 'bg-gradient-to-br from-[#008f39] to-[#00b248] border-white/20 text-white shadow-[0_8px_16px_rgba(0,143,57,0.25)]' : 'bg-white/60 border-white/50 text-slate-600 hover:bg-white'}`}
+                                            onClick={() => setForm({ ...form, diet: o.value })}>{o.label}</button>
                                     ))}
                                 </div>
                             </div>
                             <div>
-                                <label className="form-label">🏷️ Preferencia de Marcas</label>
-                                <select className="form-input" value={form.brand_preference} onChange={e=>setForm({...form, brand_preference: e.target.value})}>
-                                    <option value="Hacendado">Hacendado (Económico)</option>
-                                    <option value="Premium">Marcas Premium (Calidad)</option>
-                                    <option value="Indiferente">Indiferente (Lo mejor disponible)</option>
+                                <label className="block text-sm font-bold text-slate-700 mb-2.5">🏷️ Preferencia de Marcas</label>
+                                <select className="w-full px-5 py-3.5 rounded-2xl bg-white/60 backdrop-blur-sm border border-white/50 focus:bg-white focus:border-[#008f39]/50 focus:ring-4 focus:ring-[#008f39]/10 outline-none transition-all shadow-[0_8px_16px_rgba(0,0,0,0.03)] font-medium text-slate-800 appearance-none" value={form.brand_preference} onChange={e => setForm({ ...form, brand_preference: e.target.value })}>
+                                    <option value="Hacendado">🛒 Hacendado (Económico)</option>
+                                    <option value="Premium">⭐ Marcas Premium (Calidad)</option>
+                                    <option value="Indiferente">✨ Indiferente (Lo mejor disponible)</option>
                                 </select>
                             </div>
-                            <div>
-                                <label className="form-label">💰 Presupuesto por compra (€)</label>
-                                <input className="form-input" type="number" min="5" max="500" step="5" value={form.per_cart_budget}
-                                    onChange={e=>setForm({...form,per_cart_budget:parseFloat(e.target.value)||25})}/>
-                            </div>
-                            <div>
-                                <label className="form-label">📅 Presupuesto mensual (€)</label>
-                                <input className="form-input" type="number" min="50" max="5000" step="25" value={form.monthly_budget}
-                                    onChange={e=>setForm({...form,monthly_budget:parseFloat(e.target.value)||200})}/>
+                            <div className="grid grid-cols-2 gap-5">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-2.5">💰 Presup. Compra (€)</label>
+                                    <input className="w-full px-5 py-3.5 rounded-2xl bg-white/60 backdrop-blur-sm border border-white/50 focus:bg-white focus:border-[#008f39]/50 focus:ring-4 focus:ring-[#008f39]/10 outline-none transition-all shadow-[0_8px_16px_rgba(0,0,0,0.03)] font-medium text-slate-800" type="number" min="5" max="500" step="5" value={form.per_cart_budget} onChange={e => setForm({ ...form, per_cart_budget: parseFloat(e.target.value) || 25 })} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-2.5">📅 Presup. Mensual (€)</label>
+                                    <input className="w-full px-5 py-3.5 rounded-2xl bg-white/60 backdrop-blur-sm border border-white/50 focus:bg-white focus:border-[#008f39]/50 focus:ring-4 focus:ring-[#008f39]/10 outline-none transition-all shadow-[0_8px_16px_rgba(0,0,0,0.03)] font-medium text-slate-800" type="number" min="50" max="5000" step="25" value={form.monthly_budget} onChange={e => setForm({ ...form, monthly_budget: parseFloat(e.target.value) || 200 })} />
+                                </div>
                             </div>
                         </div>
-                        <div className="modal-footer">
-                            <button className="save-btn" onClick={handleSave} disabled={saving}>{saving?'Guardando...':'Guardar perfil'}</button>
+                        <div className="p-6 border-t border-white/40 bg-white/30">
+                            <button className="w-full py-4 bg-gradient-to-br from-[#008f39] to-[#00b248] hover:from-[#007a31] hover:to-[#008f39] text-white rounded-2xl font-extrabold text-lg shadow-[0_10px_20px_rgba(0,143,57,0.3)] hover:shadow-[0_15px_30px_rgba(0,143,57,0.4)] transition-all hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:opacity-50 border border-white/20" onClick={handleSave} disabled={saving}>{saving ? 'Guardando...' : 'Guardar y Aplicar'}</button>
                         </div>
                     </div>
                 </div>
@@ -152,26 +168,26 @@
         // ═══════════════════════════════════════════════
         const LiveCart = ({ cart, total, budget, confirmed, onConfirm, agentLogs, highlightIds, removeProduct }) => {
             const [logsOpen, setLogsOpen] = useState(false);
-            const pct = budget > 0 ? Math.min(100, (total/budget)*100) : 0;
+            const pct = budget > 0 ? Math.min(100, (total / budget) * 100) : 0;
             const barClass = pct > 90 ? 'over' : pct > 60 ? 'warn' : 'ok';
 
             return (
                 <div className="cart-panel">
                     <div className="cart-header">
                         <h2>🛒 Carrito en Vivo {cart.length > 0 && <span className="cart-count">{cart.length}</span>}</h2>
-                        <div className="cart-budget-top" style={{marginTop: '12px'}}>
-                            <div className="budget-text" style={{marginBottom: '6px'}}>{total.toFixed(2)}€ de {budget.toFixed(0)}€ presupuesto · Ahorro: {Math.max(0,budget-total).toFixed(2)}€</div>
-                            <div className="budget-bar"><div className={`budget-bar-fill ${barClass}`} style={{width:`${pct}%`}}></div></div>
+                        <div className="cart-budget-top" style={{ marginTop: '12px' }}>
+                            <div className="budget-text" style={{ marginBottom: '6px' }}>{total.toFixed(2)}€ de {budget.toFixed(0)}€ presupuesto · Ahorro: {Math.max(0, budget - total).toFixed(2)}€</div>
+                            <div className="budget-bar"><div className={`budget-bar-fill ${barClass}`} style={{ width: `${pct}%` }}></div></div>
                         </div>
                     </div>
                     <div className="cart-items">
                         {cart.length === 0 ? (
                             <div className="cart-empty">
                                 <div className="cart-empty-icon">🛒</div>
-                                <p>Tu carrito está vacío.<br/>Habla con Mercadín para llenarlo.</p>
+                                <p>Tu carrito está vacío.<br />Habla con Mercadín para llenarlo.</p>
                             </div>
                         ) : cart.map(p => (
-                            <div key={p.id} className={`cart-item ${highlightIds.includes(p.id)?'entering highlight':''}`}>
+                            <div key={p.id} className={`cart-item ${highlightIds.includes(p.id) ? 'entering highlight' : ''}`}>
                                 <div className="cart-item-emoji">{getCategoryEmoji(p.category)}</div>
                                 <div className="cart-item-info">
                                     <div className="cart-item-name" title={p.name}>{p.name}</div>
@@ -185,25 +201,156 @@
 
                     {agentLogs && agentLogs.length > 0 && (
                         <div className="agent-logs">
-                            <button className="agent-logs-toggle" onClick={()=>setLogsOpen(!logsOpen)}>
+                            <button className="agent-logs-toggle" onClick={() => setLogsOpen(!logsOpen)}>
                                 {logsOpen ? '▼' : '▶'} Decisiones de agentes ({agentLogs.length})
                             </button>
-                            {logsOpen && <div className="agent-logs-content">{agentLogs.map((l,i)=><div key={i}>{l}</div>)}</div>}
+                            {logsOpen && <div className="agent-logs-content">{agentLogs.map((l, i) => <div key={i}>{l}</div>)}</div>}
                         </div>
                     )}
 
                     {cart.length > 0 && (
-                        <div className="cart-summary">
-                            <div className="cart-total-row">
-                                <span className="cart-total-label">Total a pagar</span>
-                                <span className="cart-total-amount">{total.toFixed(2)}€</span>
+                        <div className="cart-summary bg-white/40 backdrop-blur-xl border-t border-white/50 p-6">
+                            <div className="flex justify-between items-center mb-4">
+                                <span className="text-lg font-bold text-slate-700">Total a pagar</span>
+                                <span className="text-2xl font-black text-slate-800">{total.toFixed(2)}€</span>
                             </div>
-                            <button className={`confirm-btn ${confirmed?'confirmed':''}`}
-                                onClick={onConfirm} disabled={cart.length===0||confirmed}>
-                                {confirmed ? '✓ Compra Confirmada' : 'Confirmar Compra'}
+                            <button className={`w-full py-4 rounded-2xl font-extrabold text-lg transition-all shadow-[0_8px_16px_rgba(0,0,0,0.06)] active:scale-95 flex items-center justify-center gap-2 ${confirmed ? 'bg-white/80 border-2 border-[#008f39] text-[#008f39] hover:bg-white hover:shadow-[0_12px_24px_rgba(0,143,57,0.15)]' : 'bg-gradient-to-br from-[#008f39] to-[#00b248] hover:from-[#007a31] hover:to-[#008f39] text-white hover:shadow-[0_12px_24px_rgba(0,143,57,0.3)] hover:-translate-y-0.5'}`}
+                                onClick={onConfirm} disabled={cart.length === 0}>
+                                {confirmed ? (
+                                    <>
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M2 12C2 6.48 6.48 2 12 2s10 4.48 10 10-4.48 10-10 10S2 17.52 2 12z"></path><path d="M12 8v4l3 3"></path></svg>
+                                        Ver Tramitación
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17l-5-5"></path></svg>
+                                        Confirmar Compra
+                                    </>
+                                )}
                             </button>
                         </div>
                     )}
+                </div>
+            );
+        };
+
+        // ═══════════════════════════════════════════════
+        //  CHECKOUT SIMULATION COMPONENT
+        // ═══════════════════════════════════════════════
+        const CheckoutSimulation = ({ cart, cartTotal, onBack }) => {
+            const envio = 7.21;
+            const totalFinal = cartTotal + envio;
+            
+            return (
+                <div className="absolute inset-0 bg-white/30 backdrop-blur-3xl z-50 overflow-y-auto font-sans flex flex-col animate-[fadeIn_0.3s_ease-out]">
+                    {/* Header Checkout Glassmorphism */}
+                    <div className="bg-white/50 backdrop-blur-3xl border-b border-white/60 text-slate-800 px-6 md:px-12 py-5 flex items-center gap-5 sticky top-0 z-50 shadow-[0_10px_30px_rgba(0,0,0,0.04)]">
+                        <button onClick={onBack} className="hover:bg-white/80 bg-white/40 border border-white/60 p-3 rounded-2xl transition-all shadow-sm hover:shadow-md hover:-translate-x-1" title="Volver al chat">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                        </button>
+                        <div>
+                            <h1 className="text-2xl font-black tracking-tight bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Tramitar pedido</h1>
+                            <p className="text-sm font-bold text-slate-500 mt-0.5">Entorno Seguro 🔒</p>
+                        </div>
+                    </div>
+                    
+                    <div className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+                        {/* Columna Izquierda (Pasos) */}
+                        <div className="md:col-span-2 flex flex-col gap-6">
+                            {/* Paso 1 */}
+                            <div className="bg-white/60 backdrop-blur-xl border border-white/60 rounded-[2rem] p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_12px_40px_rgba(0,0,0,0.06)]">
+                                <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-4 mb-6">
+                                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#008f39] to-[#00b248] text-white flex items-center justify-center font-black shadow-md">1</div>
+                                    Dirección de entrega
+                                </h2>
+                                <div className="ml-14 p-5 border border-white/50 bg-white/50 backdrop-blur-md rounded-2xl relative shadow-sm hover:shadow-md transition-all cursor-pointer group">
+                                    <div className="absolute top-5 right-5 text-[#008f39] transition-transform group-hover:scale-110">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                                    </div>
+                                    <p className="font-extrabold text-lg text-slate-800">Mi Casa Principal</p>
+                                    <p className="text-slate-600 font-medium mt-1">Avenida Siempre Viva 742, Bajo C<br/>28080 Madrid</p>
+                                </div>
+                            </div>
+                            
+                            {/* Paso 2 */}
+                            <div className="bg-white/60 backdrop-blur-xl border border-white/60 rounded-[2rem] p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_12px_40px_rgba(0,0,0,0.06)]">
+                                <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-4 mb-6">
+                                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#008f39] to-[#00b248] text-white flex items-center justify-center font-black shadow-md">2</div>
+                                    Horario de entrega
+                                </h2>
+                                <div className="ml-14 grid grid-cols-2 gap-4">
+                                    <div className="p-5 border-2 border-[#008f39] rounded-2xl text-center cursor-pointer bg-white/80 backdrop-blur-md relative shadow-md">
+                                        <div className="absolute top-3 right-3 text-[#008f39]">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                                        </div>
+                                        <p className="font-extrabold text-slate-800 text-lg">Mañana</p>
+                                        <p className="text-[#008f39] font-bold text-sm bg-[#e5f4eb] inline-block px-3 py-1 rounded-full mt-2">10:00 - 12:00</p>
+                                    </div>
+                                    <div className="p-5 border border-white/60 rounded-2xl text-center cursor-pointer hover:bg-white/80 hover:shadow-sm bg-white/40 backdrop-blur-md transition-all">
+                                        <p className="font-extrabold text-slate-700 text-lg">Tarde</p>
+                                        <p className="text-slate-500 font-bold text-sm bg-slate-100/50 inline-block px-3 py-1 rounded-full mt-2">16:00 - 18:00</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Paso 3 */}
+                            <div className="bg-white/60 backdrop-blur-xl border border-white/60 rounded-[2rem] p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_12px_40px_rgba(0,0,0,0.06)]">
+                                <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-4 mb-6">
+                                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#008f39] to-[#00b248] text-white flex items-center justify-center font-black shadow-md">3</div>
+                                    Método de pago
+                                </h2>
+                                <div className="ml-14 p-5 border-2 border-[#008f39] bg-white/80 backdrop-blur-md rounded-2xl flex items-center gap-5 relative shadow-md cursor-pointer group">
+                                    <div className="absolute top-5 right-5 text-[#008f39] transition-transform group-hover:scale-110">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                                    </div>
+                                    <div className="w-16 h-10 bg-gradient-to-br from-blue-900 to-blue-700 rounded-lg flex items-center justify-center font-black text-white text-sm shadow-md">VISA</div>
+                                    <div>
+                                        <p className="font-extrabold text-slate-800 text-lg">Tarjeta terminada en 4567</p>
+                                        <p className="text-slate-500 font-bold text-sm">Caduca 12/28</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Columna Derecha (Resumen) */}
+                        <div className="md:col-span-1">
+                            <div className="bg-white/70 backdrop-blur-2xl border border-white/60 rounded-[2rem] p-8 shadow-[0_20px_40px_rgba(0,0,0,0.08)] sticky top-32">
+                                <h2 className="text-xl font-extrabold text-slate-800 mb-6 border-b border-white/50 pb-5">Resumen de pedido</h2>
+                                
+                                <div className="space-y-4 mb-6 max-h-[30vh] overflow-y-auto pr-2 scrollbar-thin">
+                                    {cart.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between text-sm items-center">
+                                            <span className="text-slate-700 font-semibold truncate pr-4 flex-1"><span className="text-[#008f39] font-black mr-1">1x</span> {item.name}</span>
+                                            <span className="font-extrabold text-slate-800 bg-white/50 px-2 py-1 rounded-lg">{item.price.toFixed(2)} €</span>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="space-y-4 border-t border-white/50 pt-6 mb-8">
+                                    <div className="flex justify-between text-slate-600 font-semibold">
+                                        <span>Subtotal ({cart.length} prod.)</span>
+                                        <span className="font-extrabold text-slate-800">{cartTotal.toFixed(2)} €</span>
+                                    </div>
+                                    <div className="flex justify-between text-slate-600 font-semibold">
+                                        <span>Tarifa de envío</span>
+                                        <span className="font-extrabold text-slate-800">{envio.toFixed(2)} €</span>
+                                    </div>
+                                    <div className="flex justify-between text-2xl font-black text-slate-800 pt-4 border-t border-white/50 mt-2 items-end">
+                                        <span>Total</span>
+                                        <span className="text-3xl text-[#008f39]">{totalFinal.toFixed(2)} €</span>
+                                    </div>
+                                </div>
+
+                                <button className="w-full py-4 bg-gradient-to-br from-[#008f39] to-[#00b248] hover:from-[#007a31] hover:to-[#008f39] text-white rounded-2xl font-black text-lg shadow-[0_12px_24px_rgba(0,143,57,0.3)] transition-all hover:-translate-y-1 active:translate-y-0 active:scale-95 border border-white/20" onClick={() => alert('¡Simulación completada! En la app real, esto enviaría el pago y generaría el pedido.')}>
+                                    Autorizar pago ahora
+                                </button>
+                                
+                                <p className="text-[13px] font-semibold text-center text-slate-500 mt-5 leading-relaxed px-2">
+                                    Al autorizar el pago, aceptas las <span className="underline cursor-pointer hover:text-slate-700">Condiciones Generales</span> de Compra.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             );
         };
@@ -231,6 +378,7 @@
             const [highlightIds, setHighlightIds] = useState([]);
             const [mobileCartOpen, setMobileCartOpen] = useState(false);
             const [connectionError, setConnectionError] = useState(false);
+            const [showCheckout, setShowCheckout] = useState(false);
 
             // Mascot interaction state (must be outside conditional per React rules)
             const [mascotTilt, setMascotTilt] = useState({ x: 0, y: 0 });
@@ -242,11 +390,17 @@
                 setTimeout(() => setShowSplash(false), 600);
             };
 
-            const messagesEndRef = useRef(null);
+            const chatContainerRef = useRef(null);
+            const messagesEndRef = useRef(null); // Mantenido por si acaso
             const inputRef = useRef(null);
 
             const scrollToBottom = () => {
-                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                if (chatContainerRef.current) {
+                    chatContainerRef.current.scrollTo({
+                        top: chatContainerRef.current.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                }
             };
             useEffect(scrollToBottom, [messages, isTyping]);
 
@@ -265,11 +419,11 @@
                             setSessionId(data.session_id);
                             setDemoMode(data.demo_mode);
                             setBudget(data.profile_summary.per_cart_budget || 25);
-                            setMessages([{ role:'assistant', content: data.greeting }]);
+                            setMessages([{ role: 'assistant', content: data.greeting }]);
                             setSuggestions(data.suggestions || []);
                         }
                         setConnectionError(false);
-                    } catch(e) {
+                    } catch (e) {
                         console.error('Init error:', e);
                         setConnectionError(true);
                         setMessages([{
@@ -336,7 +490,7 @@
                     if (data.agent_logs && data.agent_logs.length > 0) {
                         setAgentLogs(data.agent_logs);
                     }
-                } catch(e) {
+                } catch (e) {
                     console.error('Remove error:', e);
                     setIsTyping(false);
                 }
@@ -348,7 +502,7 @@
 
                 const userMsg = text.trim();
                 setInputText('');
-                setMessages(prev => [...prev, { role:'user', content: userMsg }]);
+                setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
                 setSuggestions([]);
                 setIsTyping(true);
 
@@ -363,13 +517,13 @@
                     const data = await res.json();
 
                     setIsTyping(false);
-                    
+
                     // Build message with recipe download button if available
                     let msgContent = data.mercadin_message;
                     const recipeData = data.recipe_data || null;
-                    
-                    setMessages(prev => [...prev, { 
-                        role:'assistant', 
+
+                    setMessages(prev => [...prev, {
+                        role: 'assistant',
                         content: msgContent,
                         recipeData: recipeData,
                     }]);
@@ -397,18 +551,21 @@
                         handleConfirm();
                     }
 
-                } catch(e) {
+                } catch (e) {
                     setIsTyping(false);
                     setMessages(prev => [...prev, {
-                        role:'assistant',
+                        role: 'assistant',
                         content: '🦔 Perdona, ha habido un error de conexión. ¿Puedes intentarlo de nuevo?'
                     }]);
                 }
             };
 
-            // ── Confirm purchase ────────────────────
             const handleConfirm = async () => {
-                if (!sessionId || confirmed) return;
+                if (!sessionId) return;
+                if (confirmed) {
+                    setShowCheckout(true);
+                    return;
+                }
                 try {
                     const res = await fetch(`${API_BASE}/api/chat/confirm`, {
                         method: 'POST',
@@ -418,17 +575,18 @@
                     if (res.ok) {
                         const data = await res.json();
                         setConfirmed(true);
-                        setMessages(prev => [...prev, { role:'assistant', content: data.message }]);
+                        setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
+                        setShowCheckout(true);
                         // Refresh profile
                         const pRes = await fetch(`${API_BASE}/api/profile`);
                         if (pRes.ok) setProfile(await pRes.json());
                     }
-                } catch(e) { console.error(e); }
+                } catch (e) { console.error(e); }
             };
 
             // ── New session ─────────────────────────
             const resetSession = async () => {
-                setMessages([]); setCart([]); setCartTotal(0); setConfirmed(false);
+                setMessages([]); setCart([]); setCartTotal(0); setConfirmed(false); setShowCheckout(false);
                 setAgentLogs([]); setSuggestions([]); setHighlightIds([]);
                 setIsTyping(true);
                 try {
@@ -437,10 +595,10 @@
                         const data = await res.json();
                         setSessionId(data.session_id);
                         setBudget(data.profile_summary.per_cart_budget || 25);
-                        setMessages([{ role:'assistant', content: data.greeting }]);
+                        setMessages([{ role: 'assistant', content: data.greeting }]);
                         setSuggestions(data.suggestions || []);
                     }
-                } catch(e) { console.error(e); }
+                } catch (e) { console.error(e); }
                 setIsTyping(false);
             };
 
@@ -488,7 +646,7 @@
                         {/* CTA panel — right side */}
                         <div className="landing-cta-panel">
                             <h1 className="landing-title">
-                                Comienza tu compra<br/>
+                                Comienza tu compra<br />
                                 <span className="landing-title-accent">inteligente</span>
                             </h1>
                             <p className="landing-desc">
@@ -503,23 +661,30 @@
             }
 
             return (
-                <div className="app-container">
-                    {/* ═══ HEADER ═══ */}
-                    <header className="app-header">
-                        <img src="assets/logo_s.png" alt="Mercadona Autopilot" className="logo" onClick={resetSession} title="Nueva conversación"/>
-                        <div className="header-right">
-                            <select className="ai-mode-select" value={aiMode} onChange={e => setAiMode(e.target.value)} title="Motor de IA">
+                <div className="app-container relative overflow-hidden bg-[#f0f9ff]">
+                    {/* 🪄 Animated Mesh Gradient Background 🪄 */}
+                    <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-[#008f39]/15 blur-[120px] mix-blend-multiply pointer-events-none z-0 transform-gpu will-change-transform"></div>
+                    <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#f97316]/10 blur-[100px] mix-blend-multiply pointer-events-none z-0 transform-gpu will-change-transform"></div>
+                    <div className="absolute top-[20%] right-[30%] w-[40%] h-[40%] rounded-full bg-blue-400/10 blur-[120px] mix-blend-multiply pointer-events-none z-0 transform-gpu will-change-transform"></div>
+
+                    {/* ═══ HEADER (Glassmorphism) ═══ */}
+                    <header className="relative bg-white/60 backdrop-blur-2xl border-b border-white/40 px-6 py-4 flex items-center justify-between z-20 font-sans shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
+                        <div className="flex items-center gap-3 cursor-pointer hover:scale-105 transition-transform" onClick={resetSession} title="Nueva conversación">
+                            <img src="assets/logo_s.png" alt="Mercadona Autopilot" className="h-10 drop-shadow-sm" />
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <select className="bg-white/80 backdrop-blur-md text-slate-700 border border-white/50 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-[#008f39] focus:ring-4 focus:ring-[#008f39]/10 cursor-pointer transition-all shadow-[0_4px_12px_rgba(0,0,0,0.02)] appearance-none pr-8" style={{backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.7rem center', backgroundSize: '1em'}} value={aiMode} onChange={e => setAiMode(e.target.value)} title="Motor de IA">
                                 <option value="gemini">✨ Gemini IA</option>
                                 <option value="groq">⚡ Groq IA</option>
-                                <option value="demo">🤖 Simulación</option>
+                                <option value="demo">🚀 Simulación</option>
                             </select>
-                            <div className={`ia-badge ${aiMode === 'demo' ? 'demo' : 'connected'}`}>
-                                <span className="dot"></span>
-                                {aiMode === 'demo' ? 'Modo Local' : 'Conectado'}
+                            <div className={`px-4 py-2.5 rounded-xl text-xs font-bold tracking-wide flex items-center gap-2 shadow-[0_4px_12px_rgba(0,0,0,0.02)] backdrop-blur-md border ${connectionError ? 'bg-red-50/80 text-red-600 border-red-200/50' : 'bg-white/80 text-[#008f39] border-white/50'}`}>
+                                <div className={`w-2 h-2 rounded-full ${connectionError ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]' : 'bg-[#008f39] shadow-[0_0_8px_rgba(0,143,57,0.8)] animate-pulse'}`}></div>
+                                {connectionError ? 'Sin conexión' : 'Conectado'}
                             </div>
-                            <button className="profile-btn" onClick={() => setProfileOpen(true)}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            <button className="flex items-center gap-2 bg-gradient-to-br from-white to-slate-50 hover:from-white hover:to-white backdrop-blur-md border border-white/60 text-slate-700 rounded-xl px-5 py-2.5 text-sm font-bold transition-all shadow-[0_4px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 active:translate-y-0 active:scale-95" onClick={() => setProfileOpen(true)}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                 </svg>
                                 {profile?.name || 'Mi perfil'}
                             </button>
@@ -527,79 +692,101 @@
                     </header>
 
                     {/* ═══ MAIN SPLIT ═══ */}
-                    <div className="main-content">
-                        {/* ─── CHAT PANEL ─── */}
-                        <div className="chat-panel">
-                            <div className="chat-messages">
+                    <div className="main-content relative z-10">
+                        {/* ─── CHAT PANEL (Glassmorphism) ─── */}
+                        <div className="flex-1 flex flex-col bg-white/20 backdrop-blur-2xl relative overflow-hidden font-sans border-r border-white/40 shadow-[10px_0_30px_rgba(0,0,0,0.02)]">
+                            <div className="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col gap-6" ref={chatContainerRef}>
                                 {messages.map((msg, i) => (
-                                    <div key={i} className={`message ${msg.role}`}>
-                                        <div className="message-avatar">
-                                            {msg.role === 'assistant' ? '🦔' : '👤'}
-                                        </div>
-                                        <div className="message-bubble">
-                                            <div className="message-content"
-                                                dangerouslySetInnerHTML={{ __html: formatMessage(msg.content) }}/>
+                                    <div key={i} className={`flex gap-3 max-w-[85%] group ${msg.role === 'user' ? 'self-end flex-row-reverse' : 'self-start'}`}>
+                                        
+                                        {msg.role === 'assistant' && (
+                                            <div className="flex-shrink-0 mt-1 relative">
+                                                <div className="w-20 h-20 rounded-full overflow-hidden relative flex items-center justify-center bg-white border border-white/60 shadow-[0_8px_20px_rgba(0,0,0,0.08)] ring-4 ring-white/60 group-hover:scale-105 transition-transform duration-300 shrink-0">
+                                                    <video src="assets/pensando.mp4" className="w-[115%] h-[115%] max-w-none object-cover object-top" style={{ filter: 'contrast(1.05) saturate(1.05)', imageRendering: 'high-quality' }} autoPlay loop muted playsInline />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="flex flex-col">
+                                            <div 
+                                                className={`text-[15.5px] md:text-[16.5px] px-7 py-4.5 leading-relaxed backdrop-blur-xl transition-all duration-300 hover:scale-[1.01] ${
+                                                    msg.role === 'assistant' 
+                                                        ? 'bg-white/90 border border-white/60 text-slate-800 rounded-[28px] rounded-tl-[8px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] font-medium' 
+                                                        : 'bg-gradient-to-br from-[#008f39] to-[#00b248] text-white rounded-[28px] rounded-tr-[8px] shadow-[0_12px_24px_rgba(0,143,57,0.25)] border border-white/20 font-semibold'
+                                                }`}
+                                                style={{ paddingTop: '1.125rem', paddingBottom: '1.125rem' }}
+                                                dangerouslySetInnerHTML={{ __html: formatMessage(msg.content) }} 
+                                            />
                                             {msg.recipeData && (
-                                                <button className="recipe-download-btn" onClick={async () => {
+                                                <button className="mt-4 text-sm px-7 py-3.5 bg-gradient-to-r from-[#f6891f] to-[#f97316] hover:from-[#e07b1b] hover:to-[#ea580c] text-white font-extrabold rounded-2xl shadow-[0_8px_20px_rgba(249,115,22,0.3)] transition-all hover:-translate-y-1 self-start border border-white/20 flex items-center gap-2" onClick={async () => {
                                                     const res = await fetch(`${API_BASE}/api/recipe/download`, {
-                                                        method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify(msg.recipeData),
+                                                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify(msg.recipeData)
                                                     });
                                                     const blob = await res.blob();
-                                                    const url = URL.createObjectURL(blob);
-                                                    const a = document.createElement('a');
-                                                    a.href = url;
-                                                    a.download = `${msg.recipeData.nombre || 'receta'}.html`;
+                                                    const url = window.URL.createObjectURL(blob);
+                                                    const a = document.createElement('a'); a.href = url;
+                                                    a.download = `Receta_${msg.recipeData.nombre.replace(/\s+/g, '_')}.html`;
                                                     a.click();
-                                                    URL.revokeObjectURL(url);
                                                 }}>
-                                                    📥 Descargar receta
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                                    Descargar Receta
                                                 </button>
                                             )}
                                         </div>
                                     </div>
                                 ))}
+
                                 {isTyping && (
-                                    <div className="typing-indicator">
-                                        <div className="message-avatar" style={{background:'var(--merca-light)'}}>🦔</div>
-                                        <div className="typing-dots">
-                                            <span></span><span></span><span></span>
+                                    <div className="flex gap-3 max-w-[85%] self-start">
+                                        <div className="flex-shrink-0 mt-1 relative">
+                                            <div className="w-20 h-20 rounded-full overflow-hidden relative flex items-center justify-center bg-white border border-white/60 shadow-[0_8px_20px_rgba(0,0,0,0.08)] ring-4 ring-white/60 shrink-0">
+                                                <video src="assets/pensando.mp4" className="w-[115%] h-[115%] max-w-none object-cover object-top" style={{ filter: 'contrast(1.05) saturate(1.05)', imageRendering: 'high-quality' }} autoPlay loop muted playsInline />
+                                            </div>
+                                        </div>
+                                        <div className="px-7 py-6 bg-white/90 backdrop-blur-xl border border-white/60 rounded-[28px] rounded-tl-[8px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex items-center">
+                                            <div className="flex space-x-2">
+                                                <div className="w-2.5 h-2.5 bg-[#008f39]/40 rounded-full animate-bounce"></div>
+                                                <div className="w-2.5 h-2.5 bg-[#008f39]/60 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></div>
+                                                <div className="w-2.5 h-2.5 bg-[#008f39]/80 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
-                                <div ref={messagesEndRef}/>
+                                <div ref={messagesEndRef} />
                             </div>
 
                             {suggestions.length > 0 && !confirmed && (
-                                <div className="suggestions">
+                                <div className="flex flex-wrap gap-2.5 px-8 pb-4">
                                     {suggestions.map((s, i) => (
-                                        <button key={i} className="suggestion-btn" onClick={() => sendMessage(s)}>{s}</button>
+                                        <button key={i} className="px-6 py-3 bg-white/80 backdrop-blur-md border border-white/50 text-slate-700 text-sm font-bold rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.03)] hover:bg-white hover:border-[#008f39]/30 hover:text-[#008f39] transition-all hover:-translate-y-0.5" onClick={() => sendMessage(s)}>
+                                            {s}
+                                        </button>
                                     ))}
                                 </div>
                             )}
 
-                            <div className="chat-input-area">
-                                <div className="chat-input-wrapper">
-                                    <textarea className="chat-input" ref={inputRef}
-                                        rows="1" placeholder={confirmed ? 'Compra confirmada ✓' : 'Escribe a Mercadín...'}
-                                        value={inputText} onChange={e => setInputText(e.target.value)}
-                                        onKeyDown={handleKeyDown} disabled={confirmed || !sessionId}/>
-                                    
-                                    <button className={`voice-btn ${isRecording ? 'recording' : ''}`} onClick={startVoiceInput}
-                                        disabled={confirmed || !sessionId} title="Escribir por voz">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            {/* 🪄 Floating Glass Input Pill 🪄 */}
+                            <div className="p-4 md:px-8 md:pb-8 md:pt-2 flex items-end gap-3 z-20">
+                                <div className="flex-1 bg-white/80 backdrop-blur-2xl border border-white/60 rounded-[2rem] p-2 flex items-end gap-2 shadow-[0_20px_40px_rgba(0,0,0,0.06)] transition-all focus-within:bg-white focus-within:shadow-[0_20px_40px_rgba(0,143,57,0.1)] focus-within:border-[#008f39]/30">
+                                    <button className={`p-4 rounded-full flex-shrink-0 transition-all border ${isRecording ? 'bg-red-500/10 text-red-600 border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.2)] animate-pulse' : 'bg-transparent text-slate-400 border-transparent hover:bg-slate-100/50 hover:text-slate-600'}`} onClick={startVoiceInput} disabled={confirmed || !sessionId} title="Escribir por voz">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                            <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"></path>
+                                            <path d="M19 10v2a7 7 0 01-14 0v-2"></path>
                                             <line x1="12" y1="19" x2="12" y2="23"></line>
                                             <line x1="8" y1="23" x2="16" y2="23"></line>
                                         </svg>
                                     </button>
+                                    
+                                    <textarea className="flex-1 resize-none bg-transparent px-2 py-4 text-[16px] text-slate-800 placeholder-slate-400 focus:outline-none max-h-32 font-medium"
+                                        ref={inputRef}
+                                        rows="1" placeholder={confirmed ? 'Compra confirmada ✓' : 'Pregúntame qué quieres comer hoy...'}
+                                        value={inputText} onChange={e => setInputText(e.target.value)}
+                                        onKeyDown={handleKeyDown} disabled={confirmed || !sessionId} />
                                         
-                                    <button className="send-btn" onClick={() => sendMessage(inputText)}
-                                        disabled={!inputText.trim() || confirmed || !sessionId}>
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                                    <button className="p-4 rounded-full flex-shrink-0 bg-gradient-to-br from-[#008f39] to-[#00b248] hover:from-[#007a31] hover:to-[#008f39] text-white shadow-[0_8px_16px_rgba(0,143,57,0.3)] hover:shadow-[0_12px_20px_rgba(0,143,57,0.4)] transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 border border-white/20" onClick={() => sendMessage(inputText)} disabled={!inputText.trim() || confirmed || !sessionId}>
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
                                         </svg>
                                     </button>
                                 </div>
@@ -609,7 +796,7 @@
                         {/* ─── CART PANEL (desktop) ─── */}
                         <LiveCart cart={cart} total={cartTotal} budget={budget}
                             confirmed={confirmed} onConfirm={handleConfirm}
-                            agentLogs={agentLogs} highlightIds={highlightIds} removeProduct={removeProduct}/>
+                            agentLogs={agentLogs} highlightIds={highlightIds} removeProduct={removeProduct} />
                     </div>
 
                     {/* ═══ MOBILE CART ═══ */}
@@ -624,20 +811,30 @@
                                 <div className="sheet-handle"></div>
                                 <LiveCart cart={cart} total={cartTotal} budget={budget}
                                     confirmed={confirmed} onConfirm={handleConfirm}
-                                    agentLogs={agentLogs} highlightIds={highlightIds} removeProduct={removeProduct}/>
+                                    agentLogs={agentLogs} highlightIds={highlightIds} removeProduct={removeProduct} />
                             </div>
                         </div>
                     )}
 
                     {/* ═══ PROFILE MODAL ═══ */}
                     <ProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)}
-                        profile={profile} onSave={(p) => { setProfile(p); resetSession(); }}/>
+                        profile={profile} onSave={(p) => { setProfile(p); resetSession(); }} />
+
+                    {/* ═══ CHECKOUT SIMULATION ═══ */}
+                    {showCheckout && (
+                        <CheckoutSimulation 
+                            cart={cart} 
+                            cartTotal={cartTotal} 
+                            onBack={() => setShowCheckout(false)} 
+                        />
+                    )}
                 </div>
             );
         };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App/>);
+        root.render(<App />);
     </script>
 </body>
+
 </html>
