@@ -255,6 +255,46 @@ def _try_composite_recipe(text: str) -> tuple[str | None, list[str], str]:
     return None, [], ""
 
 
+def _generate_basic_recipe(dish_name: str, ingredients: list[str]) -> str:
+    """
+    Genera instrucciones de receta paso a paso básicas para platos conocidos.
+    Se usa como fallback cuando el LLM no está disponible, para que el frontend
+    pueda mostrar la foto de la receta.
+    """
+    # Recetas específicas con pasos reales
+    _BASIC_RECIPES = {
+        "paella": "1. Calienta aceite en la paellera y sofríe el pollo.\n2. Añade las judías verdes y sofríe 2 min.\n3. Agrega el tomate rallado y cocina 3 min.\n4. Vierte agua caliente (el doble que de arroz) y el azafrán.\n5. Cuando hierva, añade el arroz repartiéndolo bien.\n6. Cocina 18-20 min a fuego medio-alto sin remover.\n7. Deja reposar 5 min antes de servir.",
+        "tortilla": "1. Pela y corta las patatas en láminas finas.\n2. Fríe las patatas en abundante aceite a fuego medio.\n3. Bate los huevos con sal en un bol grande.\n4. Escurre las patatas y mézclalas con el huevo batido.\n5. Vierte en la sartén y cocina 4 min por cada lado.\n6. Dale la vuelta con un plato y cuaja el otro lado.",
+        "carbonara": "1. Cuece los espaguetis en agua con sal según el paquete.\n2. Corta el bacon en tiras y fríe hasta que esté crujiente.\n3. Bate los huevos con el queso rallado y pimienta.\n4. Escurre la pasta y mézclala con el bacon (fuego apagado).\n5. Añade la mezcla de huevo y remueve rápido.\n6. Sirve inmediatamente con más queso por encima.",
+        "espaguetis": "1. Cuece los espaguetis en abundante agua con sal.\n2. Sofríe la cebolla y el ajo picados en aceite.\n3. Añade la carne picada y cocina hasta que se dore.\n4. Agrega el tomate frito y cocina 10 min a fuego lento.\n5. Escurre la pasta y mézclala con la salsa.\n6. Sirve con queso rallado por encima.",
+        "macarrones": "1. Cuece los macarrones según las instrucciones del paquete.\n2. Sofríe la cebolla picada en aceite de oliva.\n3. Añade la carne picada y dórala bien.\n4. Incorpora el tomate frito y cocina 8 min.\n5. Mezcla con los macarrones escurridos.\n6. Gratina con queso rallado en el horno 5 min.",
+        "gazpacho": "1. Lava y trocea los tomates, pepino, pimiento y ajo.\n2. Tritúralo todo con una batidora hasta obtener una crema fina.\n3. Añade aceite de oliva, vinagre y sal al gusto.\n4. Pasa por un colador si quieres textura más fina.\n5. Refrigera al menos 2 horas antes de servir.",
+        "ensalada": "1. Lava y trocea la lechuga.\n2. Corta los tomates en gajos.\n3. Escurre el atún y el maíz.\n4. Monta todo en un bol o plato.\n5. Aliña con aceite de oliva y vinagre al gusto.",
+        "lentejas": "1. Sofríe la cebolla y la zanahoria en aceite.\n2. Añade el pimentón, remueve y agrega las lentejas.\n3. Cubre con agua, añade las patatas troceadas y el chorizo.\n4. Cocina a fuego lento 35-40 min.\n5. Rectifica de sal y sirve caliente.",
+        "hamburguesa": "1. Saca las hamburguesas del frigorífico 15 min antes.\n2. Cocínalas en sartén o plancha 4 min por cada lado.\n3. Tuesta los panes ligeramente.\n4. Monta: pan, lechuga, hamburguesa, queso, tomate, pan.\n5. Sirve con kétchup al gusto.",
+        "pizza": "1. Estira la masa de pizza sobre la bandeja del horno.\n2. Extiende el tomate frito como base.\n3. Reparte la mozzarella y el resto de ingredientes.\n4. Hornea a 220°C durante 12-15 min.\n5. Saca, corta en porciones y sirve caliente.",
+        "salmón": "1. Seca el salmón con papel de cocina y salpimienta.\n2. Calienta aceite en una sartén a fuego medio-alto.\n3. Cocina el salmón 4 min por cada lado.\n4. Exprime limón por encima al servir.\n5. Acompaña con el brócoli cocido al vapor.",
+        "pollo": "1. Salpimienta los muslos de pollo generosamente.\n2. Séllalos en una sartén con aceite bien caliente.\n3. Añade las patatas y cebolla troceadas.\n4. Hornea todo a 200°C durante 40 min.\n5. Sirve cuando el pollo esté dorado y crujiente.",
+        "desayuno": "1. Calienta la leche y sirve con los cereales.\n2. Tuesta el pan de molde y úntalo con mermelada.\n3. Sirve el zumo de naranja bien frío.\n4. ¡Listo para empezar el día con energía!",
+    }
+
+    # Buscar receta específica
+    dish_lower = dish_name.lower()
+    for key, recipe in _BASIC_RECIPES.items():
+        if key in dish_lower:
+            return recipe
+
+    # Receta genérica si no hay match específico
+    ingr_text = ", ".join(ingredients[:6])
+    return (
+        f"1. Prepara todos los ingredientes: {ingr_text}.\n"
+        f"2. Calienta aceite en una sartén o cacerola.\n"
+        f"3. Cocina los ingredientes principales a fuego medio.\n"
+        f"4. Sazona al gusto con sal y especias.\n"
+        f"5. Sirve caliente y ¡disfruta!"
+    )
+
+
 def _extract_ingredients_with_llm(request_text: str, profile: dict | None = None, ai_mode: str = "gemini") -> dict | None:
     """
     Usa Gemini para entender CUALQUIER petición culinaria y devolver ingredientes.
@@ -873,13 +913,17 @@ def _fallback_chat_message(
                         "personas": detected_people or profile.get("people", 2),
                     }
 
-        # Si no hay recipe_data del LLM, generar uno básico con la lista de la compra
+        # Si no hay recipe_data del LLM, generar uno básico con receta auto-generada
         if recipe_data is None and dish_name and dish_name != "ingredientes":
+            # Generar instrucciones básicas para que el frontend muestre la foto
+            auto_recipe = _generate_basic_recipe(dish_name, ingredients)
             recipe_data = {
                 "nombre": name.title(),
+                "receta": auto_recipe,
                 "ingredientes": [i.title() for i in ingredients],
                 "personas": detected_people or profile.get("people", 2),
             }
+            recipe_text = f"\n\n📋 **Receta:**\n{auto_recipe}"
 
         msg = (
             f"¡**{name.title()}**{people_text}! Buena elección 👨‍🍳\n\n"
