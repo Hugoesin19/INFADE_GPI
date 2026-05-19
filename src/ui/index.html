@@ -7,7 +7,7 @@
     <title>Mercadín 🦔</title>
     <meta name="description"
         content="Mercadín, tu asistente de compras inteligente de Mercadona. Chat conversacional con carrito en vivo.">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=3">
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -631,13 +631,14 @@
                     <div className={`landing-page ${splashFading ? 'fading' : ''}`}>
                         {/* Mascot overlay — bottom right */}
                         <div className="mascot-overlay"
+                            onClick={handleEnterApp}
                             onMouseEnter={() => setMascotHover(true)}
                             onMouseLeave={() => setMascotHover(false)}>
                             <div className="mascot-speech" key={speechIdx}>
                                 {speeches[speechIdx]}
                             </div>
                             <img
-                                src="assets/logo.png?v=4"
+                                src="assets/logo.png?v=5"
                                 alt="Mercadín"
                                 className={`mascot-img ${mascotHover ? 'excited' : ''}`}
                             />
