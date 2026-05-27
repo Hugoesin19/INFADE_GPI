@@ -56,6 +56,7 @@
             return m[(cat || '').toLowerCase()] || '🛒';
         }
 
+
         function formatMessage(text) {
             if (!text) return '';
             return text
@@ -240,20 +241,20 @@
         const CheckoutSimulation = ({ cart, cartTotal, onBack }) => {
             const envio = 7.21;
             const totalFinal = cartTotal + envio;
-            
+
             return (
                 <div className="absolute inset-0 bg-white/30 backdrop-blur-3xl z-50 overflow-y-auto font-sans flex flex-col animate-[fadeIn_0.3s_ease-out]">
                     {/* Header Checkout Glassmorphism */}
                     <div className="bg-white/50 backdrop-blur-3xl border-b border-white/60 text-slate-800 px-6 md:px-12 py-5 flex items-center gap-5 sticky top-0 z-50 shadow-[0_10px_30px_rgba(0,0,0,0.04)]">
                         <button onClick={onBack} className="hover:bg-white/80 bg-white/40 border border-white/60 p-3 rounded-2xl transition-all shadow-sm hover:shadow-md hover:-translate-x-1" title="Volver al chat">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
                         </button>
                         <div>
                             <h1 className="text-2xl font-black tracking-tight bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Tramitar pedido</h1>
-                            <p className="text-sm font-bold text-slate-500 mt-0.5">Entorno Seguro 🔒</p>
+                            <p className="text-sm font-bold text-slate-500 mt-0.5"></p>
                         </div>
                     </div>
-                    
+
                     <div className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
                         {/* Columna Izquierda (Pasos) */}
                         <div className="md:col-span-2 flex flex-col gap-6">
@@ -265,13 +266,13 @@
                                 </h2>
                                 <div className="ml-14 p-5 border border-white/50 bg-white/50 backdrop-blur-md rounded-2xl relative shadow-sm hover:shadow-md transition-all cursor-pointer group">
                                     <div className="absolute top-5 right-5 text-[#008f39] transition-transform group-hover:scale-110">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" /></svg>
                                     </div>
                                     <p className="font-extrabold text-lg text-slate-800">Mi Casa Principal</p>
-                                    <p className="text-slate-600 font-medium mt-1">Avenida Siempre Viva 742, Bajo C<br/>28080 Madrid</p>
+                                    <p className="text-slate-600 font-medium mt-1">Avenida Siempre Viva 742, Bajo C<br />28080 Madrid</p>
                                 </div>
                             </div>
-                            
+
                             {/* Paso 2 */}
                             <div className="bg-white/60 backdrop-blur-xl border border-white/60 rounded-[2rem] p-8 shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_12px_40px_rgba(0,0,0,0.06)]">
                                 <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-4 mb-6">
@@ -281,7 +282,7 @@
                                 <div className="ml-14 grid grid-cols-2 gap-4">
                                     <div className="p-5 border-2 border-[#008f39] rounded-2xl text-center cursor-pointer bg-white/80 backdrop-blur-md relative shadow-md">
                                         <div className="absolute top-3 right-3 text-[#008f39]">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" /></svg>
                                         </div>
                                         <p className="font-extrabold text-slate-800 text-lg">Mañana</p>
                                         <p className="text-[#008f39] font-bold text-sm bg-[#e5f4eb] inline-block px-3 py-1 rounded-full mt-2">10:00 - 12:00</p>
@@ -301,7 +302,7 @@
                                 </h2>
                                 <div className="ml-14 p-5 border-2 border-[#008f39] bg-white/80 backdrop-blur-md rounded-2xl flex items-center gap-5 relative shadow-md cursor-pointer group">
                                     <div className="absolute top-5 right-5 text-[#008f39] transition-transform group-hover:scale-110">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" /></svg>
                                     </div>
                                     <div className="w-16 h-10 bg-gradient-to-br from-blue-900 to-blue-700 rounded-lg flex items-center justify-center font-black text-white text-sm shadow-md">VISA</div>
                                     <div>
@@ -316,7 +317,7 @@
                         <div className="md:col-span-1">
                             <div className="bg-white/70 backdrop-blur-2xl border border-white/60 rounded-[2rem] p-8 shadow-[0_20px_40px_rgba(0,0,0,0.08)] sticky top-32">
                                 <h2 className="text-xl font-extrabold text-slate-800 mb-6 border-b border-white/50 pb-5">Resumen de pedido</h2>
-                                
+
                                 <div className="space-y-4 mb-6 max-h-[30vh] overflow-y-auto pr-2 scrollbar-thin">
                                     {cart.map((item, idx) => (
                                         <div key={idx} className="flex justify-between text-sm items-center">
@@ -344,7 +345,7 @@
                                 <button className="w-full py-4 bg-gradient-to-br from-[#008f39] to-[#00b248] hover:from-[#007a31] hover:to-[#008f39] text-white rounded-2xl font-black text-lg shadow-[0_12px_24px_rgba(0,143,57,0.3)] transition-all hover:-translate-y-1 active:translate-y-0 active:scale-95 border border-white/20" onClick={() => alert('¡Simulación completada! En la app real, esto enviaría el pago y generaría el pedido.')}>
                                     Autorizar pago ahora
                                 </button>
-                                
+
                                 <p className="text-[13px] font-semibold text-center text-slate-500 mt-5 leading-relaxed px-2">
                                     Al autorizar el pago, aceptas las <span className="underline cursor-pointer hover:text-slate-700">Condiciones Generales</span> de Compra.
                                 </p>
@@ -379,6 +380,10 @@
             const [mobileCartOpen, setMobileCartOpen] = useState(false);
             const [connectionError, setConnectionError] = useState(false);
             const [showCheckout, setShowCheckout] = useState(false);
+
+            // Mascot animation state: 'idle' = pensando.mp4 loop, 'adding' = añadiendo.mp4 once
+            const [mascotAction, setMascotAction] = useState('idle');
+            const addingVideoRef = useRef(null);
 
             // Mascot interaction state (must be outside conditional per React rules)
             const [mascotTilt, setMascotTilt] = useState({ x: 0, y: 0 });
@@ -534,11 +539,14 @@
                         setCartTotal(data.total);
                         setBudget(data.budget);
 
-                        // Highlight new products
+                        // Highlight new products + trigger mascot "adding" animation
                         if (data.cart_delta && data.cart_delta.added.length > 0) {
                             const newIds = data.cart_delta.added.map(p => p.id);
                             setHighlightIds(newIds);
                             setTimeout(() => setHighlightIds([]), 2000);
+
+                            // Play añadiendo.mp4 once, then return to idle
+                            setMascotAction('adding');
                         }
                     }
 
@@ -674,7 +682,7 @@
                             <img src="assets/logo_s.png" alt="Mercadona Autopilot" className="h-10 drop-shadow-sm" />
                         </div>
                         <div className="flex items-center gap-4">
-                            <select className="bg-white/80 backdrop-blur-md text-slate-700 border border-white/50 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-[#008f39] focus:ring-4 focus:ring-[#008f39]/10 cursor-pointer transition-all shadow-[0_4px_12px_rgba(0,0,0,0.02)] appearance-none pr-8" style={{backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.7rem center', backgroundSize: '1em'}} value={aiMode} onChange={e => setAiMode(e.target.value)} title="Motor de IA">
+                            <select className="bg-white/80 backdrop-blur-md text-slate-700 border border-white/50 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-[#008f39] focus:ring-4 focus:ring-[#008f39]/10 cursor-pointer transition-all shadow-[0_4px_12px_rgba(0,0,0,0.02)] appearance-none pr-8" style={{ backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.7rem center', backgroundSize: '1em' }} value={aiMode} onChange={e => setAiMode(e.target.value)} title="Motor de IA">
                                 <option value="gemini">✨ Gemini IA</option>
                                 <option value="groq">⚡ Groq IA</option>
                                 <option value="demo">🚀 Simulación</option>
@@ -699,40 +707,48 @@
                             <div className="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col gap-6" ref={chatContainerRef}>
                                 {messages.map((msg, i) => (
                                     <div key={i} className={`flex gap-3 max-w-[85%] group ${msg.role === 'user' ? 'self-end flex-row-reverse' : 'self-start'}`}>
-                                        
-                                        {msg.role === 'assistant' && (
-                                            <div className="flex-shrink-0 mt-1 relative">
-                                                <div className="w-20 h-20 rounded-full overflow-hidden relative flex items-center justify-center bg-white border border-white/60 shadow-[0_8px_20px_rgba(0,0,0,0.08)] ring-4 ring-white/60 group-hover:scale-105 transition-transform duration-300 shrink-0">
-                                                    <video src="assets/pensando.mp4" className="w-[115%] h-[115%] max-w-none object-cover object-top" style={{ filter: 'contrast(1.05) saturate(1.05)', imageRendering: 'high-quality' }} autoPlay loop muted playsInline />
+
+                                        {msg.role === 'assistant' && (() => {
+                                            const isLatestAssistant = i === messages.map((m,idx) => m.role === 'assistant' ? idx : -1).filter(x => x >= 0).pop();
+                                            const showAdding = isLatestAssistant && mascotAction === 'adding';
+                                            return (
+                                                <div className="flex-shrink-0 mt-1 relative">
+                                                    <div className="w-20 h-20 rounded-full overflow-hidden relative flex items-center justify-center bg-white border border-white/60 shadow-[0_8px_20px_rgba(0,0,0,0.08)] ring-4 ring-white/60 group-hover:scale-105 transition-transform duration-300 shrink-0">
+                                                        {showAdding ? (
+                                                            <video
+                                                                key="adding"
+                                                                ref={addingVideoRef}
+                                                                src="assets/añadiendo.mp4"
+                                                                className="w-[115%] h-[115%] max-w-none object-cover object-top"
+                                                                style={{ filter: 'contrast(1.05) saturate(1.05)', imageRendering: 'high-quality' }}
+                                                                autoPlay muted playsInline
+                                                                onEnded={() => setMascotAction('idle')}
+                                                            />
+                                                        ) : (
+                                                            <video
+                                                                key="idle"
+                                                                src="assets/pensando.mp4"
+                                                                className="w-[115%] h-[115%] max-w-none object-cover object-top"
+                                                                style={{ filter: 'contrast(1.05) saturate(1.05)', imageRendering: 'high-quality' }}
+                                                                autoPlay loop muted playsInline
+                                                            />
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
+                                            );
+                                        })()}
 
                                         <div className="flex flex-col">
-                                            <div 
-                                                className={`text-[15.5px] md:text-[16.5px] px-7 py-4.5 leading-relaxed backdrop-blur-xl transition-all duration-300 hover:scale-[1.01] ${
-                                                    msg.role === 'assistant' 
-                                                        ? 'bg-white/90 border border-white/60 text-slate-800 rounded-[28px] rounded-tl-[8px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] font-medium' 
+                                            <div
+                                                className={`text-[15.5px] md:text-[16.5px] px-7 py-4.5 leading-relaxed backdrop-blur-xl transition-all duration-300 hover:scale-[1.01] ${msg.role === 'assistant'
+                                                        ? 'bg-white/90 border border-white/60 text-slate-800 rounded-[28px] rounded-tl-[8px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] font-medium'
                                                         : 'bg-gradient-to-br from-[#008f39] to-[#00b248] text-white rounded-[28px] rounded-tr-[8px] shadow-[0_12px_24px_rgba(0,143,57,0.25)] border border-white/20 font-semibold'
-                                                }`}
+                                                    }`}
                                                 style={{ paddingTop: '1.125rem', paddingBottom: '1.125rem' }}
-                                                dangerouslySetInnerHTML={{ __html: formatMessage(msg.content) }} 
+                                                dangerouslySetInnerHTML={{ __html: formatMessage(msg.content) }}
                                             />
                                             {msg.recipeData && (
                                                 <div style={{display:'flex', flexDirection:'column', gap:'16px', marginTop:'16px'}}>
-                                                    {msg.recipeData.receta && (() => {
-                                                        const imgUrl = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(msg.recipeData.nombre + ' plato delicioso food photography 4k') + '?width=500&height=350&nologo=true';
-                                                        return (
-                                                            <div style={{borderRadius:'16px', overflow:'hidden', border:'1px solid #e2e8f0', maxWidth:'400px', minHeight:'200px', background:'#f1f5f9', display:'flex', alignItems:'center', justifyContent:'center', position:'relative'}}>
-                                                                <span style={{color:'#94a3b8', fontWeight:'bold', fontSize:'13px', position:'absolute'}}>📸 Generando foto del plato...</span>
-                                                                <img 
-                                                                    src={imgUrl}
-                                                                    alt={msg.recipeData.nombre}
-                                                                    style={{width:'100%', height:'auto', objectFit:'cover', position:'relative', zIndex:1, display:'block'}}
-                                                                />
-                                                            </div>
-                                                        );
-                                                    })()}
                                                     <button className="text-sm px-7 py-3.5 bg-gradient-to-r from-[#f6891f] to-[#f97316] hover:from-[#e07b1b] hover:to-[#ea580c] text-white font-extrabold rounded-2xl shadow-[0_8px_20px_rgba(249,115,22,0.3)] transition-all hover:-translate-y-1 self-start border border-white/20 flex items-center gap-2" onClick={async () => {
                                                         const res = await fetch(`${API_BASE}/api/recipe/download`, {
                                                             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -793,13 +809,13 @@
                                             <line x1="8" y1="23" x2="16" y2="23"></line>
                                         </svg>
                                     </button>
-                                    
+
                                     <textarea className="flex-1 resize-none bg-transparent px-2 py-4 text-[16px] text-slate-800 placeholder-slate-400 focus:outline-none max-h-32 font-medium"
                                         ref={inputRef}
                                         rows="1" placeholder={confirmed ? 'Compra confirmada ✓' : 'Pregúntame qué quieres comer hoy...'}
                                         value={inputText} onChange={e => setInputText(e.target.value)}
                                         onKeyDown={handleKeyDown} disabled={confirmed || !sessionId} />
-                                        
+
                                     <button className="p-4 rounded-full flex-shrink-0 bg-gradient-to-br from-[#008f39] to-[#00b248] hover:from-[#007a31] hover:to-[#008f39] text-white shadow-[0_8px_16px_rgba(0,143,57,0.3)] hover:shadow-[0_12px_20px_rgba(0,143,57,0.4)] transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 border border-white/20" onClick={() => sendMessage(inputText)} disabled={!inputText.trim() || confirmed || !sessionId}>
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                             <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
@@ -838,10 +854,10 @@
 
                     {/* ═══ CHECKOUT SIMULATION ═══ */}
                     {showCheckout && (
-                        <CheckoutSimulation 
-                            cart={cart} 
-                            cartTotal={cartTotal} 
-                            onBack={() => setShowCheckout(false)} 
+                        <CheckoutSimulation
+                            cart={cart}
+                            cartTotal={cartTotal}
+                            onBack={() => setShowCheckout(false)}
                         />
                     )}
                 </div>
