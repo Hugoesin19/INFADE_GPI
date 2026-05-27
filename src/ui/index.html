@@ -646,7 +646,7 @@
                                 {speeches[speechIdx]}
                             </div>
                             <img
-                                src="assets/logo.png?v=5"
+                                src="assets/logo.png?v=6"
                                 alt="Mercadín"
                                 className={`mascot-img ${mascotHover ? 'excited' : ''}`}
                             />
@@ -679,7 +679,7 @@
                     {/* ═══ HEADER (Glassmorphism) ═══ */}
                     <header className="relative bg-white/60 backdrop-blur-2xl border-b border-white/40 px-6 py-4 flex items-center justify-between z-20 font-sans shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
                         <div className="flex items-center gap-3 cursor-pointer hover:scale-105 transition-transform" onClick={resetSession} title="Nueva conversación">
-                            <img src="assets/logo_s.png" alt="Mercadona Autopilot" className="h-10 drop-shadow-sm" />
+                            <img src="assets/logo_s.png?v=2" alt="Mercadona Autopilot" className="h-10 drop-shadow-sm" />
                         </div>
                         <div className="flex items-center gap-4">
                             <select className="bg-white/80 backdrop-blur-md text-slate-700 border border-white/50 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-[#008f39] focus:ring-4 focus:ring-[#008f39]/10 cursor-pointer transition-all shadow-[0_4px_12px_rgba(0,0,0,0.02)] appearance-none pr-8" style={{ backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.7rem center', backgroundSize: '1em' }} value={aiMode} onChange={e => setAiMode(e.target.value)} title="Motor de IA">
