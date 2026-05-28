@@ -34,6 +34,7 @@ PRODUCTS = [
     ("Espaguetis Hacendado", "Hacendado", "Arroz, legumbres y pasta", "Pastas", 0.85, 0.5, "kg", "Paquete", ["gluten"], 356, 12.0, 71.0, 1.8),
     ("Espaguetis Gallo", "Gallo", "Arroz, legumbres y pasta", "Pastas", 1.45, 0.5, "kg", "Paquete", ["gluten"], 356, 12.0, 71.0, 1.8),
     ("Macarrones Hacendado", "Hacendado", "Arroz, legumbres y pasta", "Pastas", 0.82, 0.5, "kg", "Paquete", ["gluten"], 356, 12.0, 71.0, 1.8),
+    ("Macarrones sin gluten Hacendado", "Hacendado", "Arroz, legumbres y pasta", "Pastas", 1.55, 0.5, "kg", "Paquete", [], 356, 7.0, 78.0, 1.5),
     ("Macarrones Gallo", "Gallo", "Arroz, legumbres y pasta", "Pastas", 1.35, 0.5, "kg", "Paquete", ["gluten"], 356, 12.0, 71.0, 1.8),
     ("Pasta penne rigate Hacendado", "Hacendado", "Arroz, legumbres y pasta", "Pastas", 0.90, 0.5, "kg", "Paquete", ["gluten"], 355, 12.0, 71.0, 1.5),
     ("Lentejas pardinas Hacendado", "Hacendado", "Arroz, legumbres y pasta", "Legumbres", 1.65, 1.0, "kg", "Paquete", [], 338, 24.0, 52.0, 1.4),
@@ -148,6 +149,7 @@ PRODUCTS = [
     # ─── PANADERÍA Y PASTELERÍA ───────────────────────────
     ("Pan de molde integral Hacendado", "Hacendado", "Panadería y pastelería", "Pan de molde", 1.15, 0.46, "kg", "Bolsa", ["gluten", "soja"], 247, 11.0, 40.0, 4.5),
     ("Pan de molde blanco Hacendado", "Hacendado", "Panadería y pastelería", "Pan de molde", 0.99, 0.46, "kg", "Bolsa", ["gluten", "lactosa"], 265, 8.5, 48.0, 3.5),
+    ("Pan de molde sin gluten Hacendado", "Hacendado", "Panadería y pastelería", "Pan de molde", 2.15, 0.4, "kg", "Bolsa", [], 265, 4.0, 45.0, 4.5),
     ("Pan de hamburguesa Hacendado", "Hacendado", "Panadería y pastelería", "Pan", 1.10, 0.3, "kg", "Bolsa", ["gluten", "huevo", "lactosa", "soja"], 290, 9.0, 50.0, 5.0),
     ("Barra de pan rústica", "Hacendado", "Panadería y pastelería", "Pan", 0.75, 0.25, "kg", "Unidad", ["gluten"], 270, 9.0, 52.0, 1.5),
     ("Tortitas de maíz Hacendado", "Hacendado", "Panadería y pastelería", "Pan", 1.05, 0.13, "kg", "Paquete", [], 385, 7.0, 82.0, 2.5),
@@ -178,6 +180,7 @@ PRODUCTS = [
     ("Copos de avena Hacendado", "Hacendado", "Cereales y galletas", "Cereales", 1.35, 0.5, "kg", "Paquete", ["gluten"], 367, 12.0, 58.0, 7.5),
     ("Muesli con frutos rojos Hacendado", "Hacendado", "Cereales y galletas", "Cereales", 2.49, 0.5, "kg", "Bolsa", ["gluten", "frutos_secos"], 365, 9.0, 62.0, 7.5),
     ("Galletas María Hacendado", "Hacendado", "Cereales y galletas", "Galletas", 0.89, 0.8, "kg", "Paquete", ["gluten", "huevo", "lactosa"], 440, 7.0, 72.0, 14.0),
+    ("Galletas María sin gluten Hacendado", "Hacendado", "Cereales y galletas", "Galletas", 1.95, 0.4, "kg", "Paquete", [], 450, 4.0, 75.0, 15.0),
     ("Galletas digestive Hacendado", "Hacendado", "Cereales y galletas", "Galletas", 1.05, 0.8, "kg", "Paquete", ["gluten", "lactosa"], 470, 7.0, 65.0, 20.0),
     ("Galletas de chocolate Hacendado", "Hacendado", "Cereales y galletas", "Galletas", 1.35, 0.3, "kg", "Paquete", ["gluten", "huevo", "lactosa", "soja"], 495, 6.5, 63.0, 24.0),
 
@@ -236,6 +239,7 @@ PRODUCTS = [
 
     # ─── PIZZAS Y PLATOS PREPARADOS ───────────────────────
     ("Masa de pizza refrigerada Hacendado", "Hacendado", "Pizzas y platos preparados", "Masas", 1.35, 0.26, "kg", "Envase", ["gluten", "huevo", "lactosa"], 280, 8.0, 45.0, 7.0),
+    ("Masa de pizza sin gluten Hacendado", "Hacendado", "Pizzas y platos preparados", "Masas", 2.25, 0.26, "kg", "Envase", [], 275, 2.0, 48.0, 7.5),
     ("Tortilla de patatas refrigerada Hacendado", "Hacendado", "Pizzas y platos preparados", "Platos preparados", 2.35, 0.6, "kg", "Bandeja", ["huevo"], 140, 5.5, 15.0, 6.0),
     ("Empanadillas de atún congeladas Hacendado", "Hacendado", "Pizzas y platos preparados", "Platos preparados", 2.50, 0.5, "kg", "Bolsa", ["gluten", "huevo", "pescado"], 200, 7.0, 25.0, 8.0),
     ("Lasaña boloñesa Hacendado", "Hacendado", "Pizzas y platos preparados", "Platos preparados", 3.25, 0.5, "kg", "Bandeja", ["gluten", "huevo", "lactosa"], 150, 8.0, 15.0, 6.0),

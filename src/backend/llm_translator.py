@@ -113,7 +113,7 @@ Responde con JSON:
 
 _RECIPE_DB = [
     {"names": {"paella", "paella valenciana", "arroz con pollo"}, "meal_type": "comida",
-     "ingredients": ["arroz redondo", "muslos de pollo", "judías verdes", "tomate", "aceite de oliva virgen", "azafrán", "sal"]},
+     "ingredients": ["arroz redondo", "muslos de pollo", "judías verdes", "garrofón", "tomate", "aceite de oliva virgen", "azafrán", "pimentón", "romero", "sal"]},
     {"names": {"arroz a banda", "arroz con marisco"}, "meal_type": "comida",
      "ingredients": ["arroz redondo", "gambas", "caldo", "tomate", "aceite de oliva virgen", "azafrán", "ajo"]},
     {"names": {"arroz con costra", "costra"}, "meal_type": "comida",
@@ -253,6 +253,39 @@ def _try_composite_recipe(text: str) -> tuple[str | None, list[str], str]:
         return dish_name, ingredients, base_data["meal_type"]
     
     return None, [], ""
+
+
+def get_traditional_recipe_ingredients(recipe_name: str) -> list[str] | None:
+    """
+    Devuelve la lista estricta de ingredientes para una receta tradicional.
+    Si la receta es un 'statement' (está en la DB), devuelve sus ingredientes.
+    De lo contrario, devuelve None.
+    """
+    if not recipe_name:
+        return None
+        
+    name_lower = recipe_name.lower().strip()
+    
+    # 1. Búsqueda directa exacta en _RECIPE_DB
+    for recipe in _RECIPE_DB:
+        if name_lower in recipe["names"]:
+            return list(recipe["ingredients"])
+            
+    # 2. Búsqueda de receta compuesta (ej. "pizza carbonara")
+    dish_name, ingredients, _ = _try_composite_recipe(name_lower)
+    if dish_name:
+        return ingredients
+        
+    # 3. Búsqueda parcial (substring) para atrapar invenciones del LLM (ej: "Paella de pollo y mariscos")
+    import re
+    for recipe in _RECIPE_DB:
+        sorted_names = sorted(recipe["names"], key=len, reverse=True)
+        for name in sorted_names:
+            pattern = r'\b' + re.escape(name) + r'\b'
+            if re.search(pattern, name_lower):
+                return list(recipe["ingredients"])
+                
+    return None
 
 
 def _generate_basic_recipe(dish_name: str, ingredients: list[str]) -> str:
@@ -527,7 +560,7 @@ _INGREDIENT_KNOWLEDGE = {
     "bacalao": ["bacalao", "aceite de oliva", "ajo", "pimientos"],
 
     # Platos
-    "paella": ["arroz redondo", "muslos de pollo", "judías verdes", "tomate", "aceite de oliva virgen", "azafrán", "sal", "caldo"],
+    "paella": ["arroz redondo", "muslos de pollo", "judías verdes", "garrofón", "tomate", "aceite de oliva virgen", "azafrán", "pimentón", "romero", "sal"],
     "tortilla": ["huevos", "patatas selección", "cebolla", "aceite de oliva", "sal"],
     "gazpacho": ["tomates pera", "pepino", "pimiento", "aceite de oliva virgen", "vinagre", "ajo", "sal"],
     "ensalada": ["lechuga", "tomates pera", "maíz dulce", "atún", "aceite de oliva virgen", "vinagre"],
@@ -557,6 +590,19 @@ _INGREDIENT_KNOWLEDGE = {
     "compra semanal": ["leche", "pan de molde", "huevos", "arroz redondo", "pasta", "tomate frito", "aceite de oliva", "pollo", "lechuga", "tomates pera", "patatas selección", "cebolla", "fruta"],
     "compra basica": ["leche", "pan de molde", "huevos", "arroz redondo", "aceite de oliva", "tomate frito", "sal"],
     "barbacoa": ["costillas de cerdo", "hamburguesas de vacuno", "pan de hamburguesa", "pimientos", "cebolla", "aceite de oliva", "kétchup", "cerveza"],
+
+    # Eventos sociales / picoteo
+    "picoteo": ["patatas fritas", "aceitunas", "cerveza", "jamón serrano", "queso curado", "nachos", "guacamole", "hummus", "picos de pan", "salchichón", "fuet", "frutos secos"],
+    "aperitivo": ["aceitunas", "patatas fritas", "cerveza", "jamón serrano", "queso curado", "picos de pan", "frutos secos"],
+    "tapas": ["aceitunas", "jamón serrano", "queso curado", "patatas fritas", "croquetas de jamón", "cerveza", "pan"],
+    "snack": ["patatas fritas", "frutos secos", "palomitas", "nachos", "cerveza"],
+    "futbol": ["patatas fritas", "nachos", "cerveza", "aceitunas", "jamón serrano", "queso curado", "salchichón", "guacamole"],
+    "fútbol": ["patatas fritas", "nachos", "cerveza", "aceitunas", "jamón serrano", "queso curado", "salchichón", "guacamole"],
+    "mundial": ["patatas fritas", "nachos", "cerveza", "aceitunas", "jamón serrano", "queso curado", "salchichón", "guacamole", "alitas de pollo"],
+    "partido": ["patatas fritas", "nachos", "cerveza", "aceitunas", "jamón serrano", "queso curado", "fuet"],
+    "fiesta": ["patatas fritas", "nachos", "cerveza", "refrescos", "aceitunas", "jamón serrano", "queso curado", "pizza"],
+    "cumpleaños": ["tarta", "patatas fritas", "refrescos", "cerveza", "aceitunas", "jamón serrano", "queso curado"],
+    "copa": ["patatas fritas", "aceitunas", "frutos secos", "cerveza"],
     
     # Conceptos abstractos / intenciones
     "dulce saludable": ["yogur proteínas hacendado", "chocolate negro 72% hacendado", "fresas", "almendras tostadas hacendado"],
@@ -650,40 +696,59 @@ def _fallback_chat_message(
                         detected_allergens.append(allergen)
 
     if detected_allergens:
-        # Construir lista de productos a eliminar del carrito actual
-        from .csp_filter import _product_has_allergen
-        remove_queries = []
-        for p in current_cart:
-            for allergen in detected_allergens:
-                if _product_has_allergen(p, allergen):
-                    remove_queries.append(p["name"])
-                    break
-
-        allergen_names = ", ".join(detected_allergens)
-        removed_text = ""
-        if remove_queries:
-            removed_text = f"\n\n🚫 He quitado del carrito: {', '.join(remove_queries[:5])}"
-            if len(remove_queries) > 5:
-                removed_text += f" y {len(remove_queries) - 5} más"
-
-        msg = (
-            f"¡Anotado, Jefe! 🦔 Registro tu alergia a **{allergen_names}**. "
-            f"A partir de ahora filtro todos los productos con estos alérgenos."
-            f"{removed_text}"
-            f"\n\n¿Necesitas algo más?"
-        )
-
-        action = "remove_from_cart" if remove_queries else "no_change"
-        return {
-            "mercadin_message": msg,
-            "action": action,
-            "delta": {
-                "add_queries": [],
-                "remove_queries": remove_queries,
-                "modify": [],
-            },
-            "updated_constraints": {"allergens": detected_allergens},
+        # Comprobar si el mensaje TAMBIÉN contiene una petición de comida
+        # (ej: "pizza sin gluten" = receta + alergia simultáneamente)
+        _FOOD_TRIGGER_WORDS = {
+            "pizza", "paella", "pasta", "arroz", "tortilla", "ensalada", "gazpacho",
+            "lentejas", "hamburguesa", "salmón", "salmon", "pollo", "carbonara",
+            "macarrones", "espaguetis", "lasaña", "croquetas", "sopa", "crema",
+            "risotto", "curry", "fajitas", "desayuno", "cena", "comida", "merienda",
+            "estofado", "guiso", "fabada", "cocido", "barbacoa", "compra", "semanal",
+            "pisto", "revuelto", "wok", "empanada", "bocadillo", "sandwich",
+            "quiero hacer", "quiero cocinar", "ponme", "hazme", "prepara", "dame",
         }
+        has_food_request = any(fw in text for fw in _FOOD_TRIGGER_WORDS)
+
+        if has_food_request:
+            # NO retornar aquí — guardar los alérgenos como pendientes y continuar
+            # al pipeline de recetas (pasos 5+). La receta se añadirá y los alérgenos
+            # se propagarán como updated_constraints.
+            pass  # Continuar al pipeline de recetas con detected_allergens pendientes
+        else:
+            # Es SOLO una declaración de alergia (sin petición de comida)
+            from .csp_filter import _product_has_allergen
+            remove_queries = []
+            for p in current_cart:
+                for allergen in detected_allergens:
+                    if _product_has_allergen(p, allergen):
+                        remove_queries.append(p["name"])
+                        break
+
+            allergen_names = ", ".join(detected_allergens)
+            removed_text = ""
+            if remove_queries:
+                removed_text = f"\n\n🚫 He quitado del carrito: {', '.join(remove_queries[:5])}"
+                if len(remove_queries) > 5:
+                    removed_text += f" y {len(remove_queries) - 5} más"
+
+            msg = (
+                f"¡Anotado, Jefe! 🦔 Registro tu alergia a **{allergen_names}**. "
+                f"A partir de ahora filtro todos los productos con estos alérgenos."
+                f"{removed_text}"
+                f"\n\n¿Necesitas algo más?"
+            )
+
+            action = "remove_from_cart" if remove_queries else "no_change"
+            return {
+                "mercadin_message": msg,
+                "action": action,
+                "delta": {
+                    "add_queries": [],
+                    "remove_queries": remove_queries,
+                    "modify": [],
+                },
+                "updated_constraints": {"allergens": detected_allergens},
+            }
 
     # ─── 2a. Detectar VACIAR CARRITO / ELIMINAR TODO ──────
     clear_patterns = [
@@ -757,7 +822,20 @@ def _fallback_chat_message(
 
     # ─── 4. Detectar personas ────────────────────────────
     people_match = re.search(r"para\s+(\d+)", text)
+    if not people_match:
+        # "con 5 amigos" → 5 amigos + el propio usuario = 6 personas
+        amigos_match = re.search(r"(?:con|entre)\s+(\d+)\s+(?:amigos?|colegas?|personas?|gente|invitados?|compañeros?)", text)
+        if amigos_match:
+            people_match = amigos_match
     detected_people = int(people_match.group(1)) if people_match else None
+
+    # ─── 4b. Detectar presupuesto ────────────────────────
+    budget_match = re.search(r"(\d+)\s*€", text)
+    if not budget_match:
+        budget_match = re.search(r"(\d+)\s+euros?", text)
+    if not budget_match:
+        budget_match = re.search(r"presupuesto\s+(?:de\s+)?(\d+)", text)
+    detected_budget = float(budget_match.group(1)) if budget_match else None
 
     # ─── 5. RESOLUCIÓN DE RECETAS / PLANIFICACIÓN ────────
     # Prioridad absoluta: LLM Chef → DB exacta → composición → keywords → vocabulario
@@ -925,12 +1003,21 @@ def _fallback_chat_message(
             }
             recipe_text = f"\n\n📋 **Receta:**\n{auto_recipe}"
 
+        # Incluir alérgenos detectados (ej: "pizza sin gluten")
+        if detected_allergens:
+            updated["allergens"] = detected_allergens
+            allergen_names = ", ".join(detected_allergens)
+            allergen_note = f"\n\n🚫 He registrado tu restricción de **{allergen_names}** — los productos con estos alérgenos se filtrarán automáticamente."
+        else:
+            allergen_note = ""
+
         msg = (
             f"¡**{name.title()}**{people_text}! Buena elección 👨‍🍳\n\n"
             f"He preparado estos ingredientes:\n"
             + "\n".join(f"• {i.title()}" for i in ingredients[:30])
             + recipe_text
             + planning_text
+            + allergen_note
             + "\n\n¿Quieres modificar algo?"
         )
 
@@ -1055,7 +1142,12 @@ def translate_prompt(user_text: str) -> dict[str, Any]:
     """Original: traduce texto libre a constraints. Se mantiene para /api/generate-cart."""
     print(f"DEBUG PROMPT: {user_text!r}")
     if DEMO_MODE:
-        return {"constraints": _fallback_translate(user_text), "explicit": [], "used_fallback": True}
+        fallback_res = _fallback_translate(user_text)
+        return {
+            "constraints": fallback_res["constraints"],
+            "explicit": fallback_res["explicit"],
+            "used_fallback": True
+        }
 
     try:
         from google import genai
@@ -1068,12 +1160,22 @@ def translate_prompt(user_text: str) -> dict[str, Any]:
         try:
             result = json.loads(raw)
         except json.JSONDecodeError:
-            return _fallback_translate(user_text)
+            fallback_res = _fallback_translate(user_text)
+            return {
+                "constraints": fallback_res["constraints"],
+                "explicit": fallback_res["explicit"],
+                "used_fallback": True
+            }
         explicit = _detect_explicit_fields(user_text, result)
         return {"constraints": result, "explicit": explicit, "used_fallback": False}
     except Exception as e:
         print(f"[LLM] Error genérico: {e}")
-        return {"constraints": _fallback_translate(user_text), "explicit": [], "used_fallback": True}
+        fallback_res = _fallback_translate(user_text)
+        return {
+            "constraints": fallback_res["constraints"],
+            "explicit": fallback_res["explicit"],
+            "used_fallback": True
+        }
 
 
 # ── Helpers ───────────────────────────────────────────────

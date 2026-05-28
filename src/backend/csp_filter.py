@@ -105,6 +105,12 @@ def _product_has_allergen(product: dict, allergen: str) -> bool:
     # 2. Comprobar por keywords en nombre del producto
     allergen_info = ALLERGEN_KEYWORD_MAP.get(allergen, {})
     name_lower = product.get("name", "").lower()
+    
+    # Si el nombre del producto indica explícitamente "sin [alérgeno]",
+    # ignoramos el resto de heurísticas por palabra clave.
+    if f"sin {allergen}" in name_lower:
+        return False
+        
     cat_lower = product.get("category", "").lower()
     sub_lower = product.get("subcategory", "").lower()
 

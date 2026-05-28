@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .config import DEMO_MODE, GEMINI_API_KEY, GEMINI_MODEL
-
+from .llm_translator import get_traditional_recipe_ingredients
 
 @dataclass
 class CartState:
@@ -554,6 +554,12 @@ def run_agents_demo(
     state = _demo_logistics(state)
     state = _demo_financial(state)
 
+    # 4. Supervisor Culinario
+    state = _demo_culinary_supervisor(state)
+
+    # 5. Supervisor de Calidad
+    state = _demo_supervisor(state)
+
     return state
 
 
@@ -689,7 +695,10 @@ def run_agents_llm(
     if state.total == 0:
         state.total = round(sum(p["price"] for p in state.selected_products), 2)
 
-    # 4. Supervisor
+    # 4. Supervisor Culinario
+    state = _demo_culinary_supervisor(state)
+
+    # 5. Supervisor
     state = _demo_supervisor(state)
 
     return state
@@ -810,8 +819,109 @@ def run_agents_delta(
             f"💰 Financiero: Cesta {state.total}€ / {state.budget}€ ({usage:.0f}% aprovechado). ✅"
         )
 
-    # 4. Supervisor de Calidad: Verifica coherencia y audita la compra
+    # 4. Supervisor Culinario: Vigila la pureza de recetas statement
+    state = _demo_culinary_supervisor(state)
+
+    # 5. Supervisor de Calidad: Verifica coherencia y audita la compra
     state = _demo_supervisor(state)
+
+    return state
+
+
+def _demo_culinary_supervisor(state: CartState) -> CartState:
+    """
+    Agente Culinario: Vigila que las recetas tradicionales ("statements") no sean adulteradas.
+    Si la receta es un statement, elimina ingredientes que no pertenezcan a la receta original.
+    """
+    if not state.notes or not state.selected_products:
+        return state
+
+    traditional_ingredients = get_traditional_recipe_ingredients(state.notes)
+    if not traditional_ingredients:
+        return state
+
+    import re
+    import unicodedata
+
+    def _normalize(s: str) -> str:
+        """Quita tildes y pasa a minúsculas."""
+        s = ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+        return s.lower().strip()
+
+    # Si es una receta statement, no permitimos invenciones
+    # Construir set de palabras clave permitidas (cada palabra individual de cada ingrediente)
+    allowed_words = set()
+    for ing in traditional_ingredients:
+        normalized = _normalize(ing)
+        # Añadir el ingrediente completo
+        allowed_words.add(normalized)
+        # Añadir cada palabra significativa (>= 3 chars)
+        for word in normalized.split():
+            if len(word) >= 3:
+                allowed_words.add(word)
+
+    # Ingredientes universales que siempre se permiten
+    universal_words = {
+        "agua", "aceite", "oliva", "sal", "pimienta", "ajo", "cebolla", "pan",
+        "vinagre", "limon", "limón",
+    }
+    allowed_words.update(universal_words)
+
+    # Palabras que NUNCA deben permitir un match (falsos positivos comunes)
+    # "sal" no debe matchear "salchichas", "salmon", "salsa"
+    false_positive_blocklist = {
+        "salchichas", "salchicha", "salmon", "salmón", "salsa",
+        "chorizo", "mortadela", "fuet", "sobrasada",
+    }
+
+    filtered_products = []
+    removed = []
+
+    for p in state.selected_products:
+        name_norm = _normalize(p["name"])
+        sub_norm = _normalize(p.get("subcategory", ""))
+        product_words = set(name_norm.split())
+
+        # Primero: comprobar si el producto está en la lista negra
+        is_blocklisted = any(blocked in name_norm for blocked in false_positive_blocklist)
+        if is_blocklisted:
+            # Solo permitir si hay un match EXACTO completo (no solo una palabra suelta)
+            exact_match = any(
+                _normalize(ing) in name_norm or _normalize(ing) in sub_norm
+                for ing in traditional_ingredients
+            )
+            if not exact_match:
+                removed.append(p["name"])
+                continue
+
+        # Segundo: comprobar si alguna palabra del ingrediente aparece en el producto
+        is_allowed = False
+        for term in allowed_words:
+            # Comprobar como palabra completa en el nombre del producto
+            if term in product_words:
+                is_allowed = True
+                break
+            # Comprobar como substring en el nombre (para multi-palabra como "aceite de oliva")
+            if len(term) >= 4 and term in name_norm:
+                is_allowed = True
+                break
+            # Comprobar en subcategoría
+            if term in sub_norm.split() or (len(term) >= 4 and term in sub_norm):
+                is_allowed = True
+                break
+
+        if is_allowed:
+            filtered_products.append(p)
+        else:
+            removed.append(p["name"])
+
+    state.selected_products = filtered_products
+
+    if removed:
+        state.agent_logs.append(
+            f"👨‍🍳 Agente Culinario: La receta '{state.notes}' es un statement. "
+            f"Se han bloqueado: {', '.join(removed)} por no pertenecer a la receta original."
+        )
 
     return state
 
